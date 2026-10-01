@@ -42,7 +42,17 @@ class AbiApkPackaging {
 
     private static void configureFinalizer(Project project, def android, def components, def variant, Object apkArtifact) {
         def windows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
-        def buildToolsDir = components.sdkComponents.sdkDirectory.get().dir("build-tools/${android.buildToolsVersion}").asFile
+        def sdkDir = components.sdkComponents.sdkDirectory.get().asFile
+        def buildToolsDir = new File(sdkDir, "build-tools/${android.buildToolsVersion}")
+        if (!buildToolsDir.exists()) {
+            def btParent = new File(sdkDir, 'build-tools')
+            if (btParent.exists()) {
+                def available = btParent.listFiles()?.findAll { it.isDirectory() }?.sort { it.name }
+                if (available) {
+                    buildToolsDir = available.last()
+                }
+            }
+        }
         def signingConfig = android.signingConfigs.release
         def finalizeTask = project.tasks.register("finalize${variant.name.capitalize()}Apks", FinalizeApksTask) { task ->
             task.zipalignFile.set(new File(buildToolsDir, windows ? 'zipalign.exe' : 'zipalign'))

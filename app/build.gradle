@@ -6,8 +6,11 @@ plugins {
 }
 
 def localProps = new Properties()
-rootProject.file('local.properties').withInputStream {
-    localProps.load(it)
+def localPropsFile = rootProject.file('local.properties')
+if (localPropsFile.exists()) {
+    localPropsFile.withInputStream {
+        localProps.load(it)
+    }
 }
 
 android {
@@ -46,10 +49,45 @@ android {
 
     signingConfigs {
         release {
-            storeFile file(localProps['storeFile'])
-            keyAlias localProps['keyAlias']
-            keyPassword localProps['storePassword']
-            storePassword localProps['storePassword']
+            def storePath = localProps.getProperty('storeFile') ?: System.getenv('STORE_FILE')
+            File keystore
+            if (storePath) {
+                keystore = file(storePath)
+            } else if (file('release.jks').exists()) {
+                keystore = file('release.jks')
+            } else if (rootProject.file('release.jks').exists()) {
+                keystore = rootProject.file('release.jks')
+            } else {
+                keystore = file('release.jks')
+            }
+            def alias = localProps.getProperty('keyAlias') ?: System.getenv('KEY_ALIAS') ?: 'fongmi'
+            def pass = localProps.getProperty('storePassword') ?: System.getenv('STORE_PASSWORD') ?: '123456'
+            def keyPass = localProps.getProperty('keyPassword') ?: System.getenv('KEY_PASSWORD') ?: pass
+
+            if (!keystore.exists()) {
+                keystore.parentFile?.mkdirs()
+                try {
+                    def cmd = [
+                        'keytool', '-genkeypair', '-v',
+                        '-keystore', keystore.absolutePath,
+                        '-alias', alias,
+                        '-keyalg', 'RSA',
+                        '-keysize', '2048',
+                        '-validity', '10000',
+                        '-storepass', pass,
+                        '-keypass', keyPass,
+                        '-dname', 'CN=FongMi, OU=TV, O=FongMi, L=Taipei, S=TW, C=TW'
+                    ]
+                    def proc = cmd.execute()
+                    proc.waitFor()
+                } catch (Exception ignored) {
+                }
+            }
+
+            storeFile keystore
+            keyAlias alias
+            keyPassword keyPass
+            storePassword pass
         }
     }
 
