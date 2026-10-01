@@ -99,14 +99,24 @@ public final class MpvUtil {
         builder.addDiskCacheOptions(Path.mpvCache(), PreloadSetting.getTimeSeconds());
     }
 
+    private static void invokeSafe(Object target, String methodName, Class<?>[] types, Object... args) {
+        try {
+            target.getClass().getMethod(methodName, types).invoke(target, args);
+        } catch (Throwable ignored) {
+        }
+    }
+
     private static MpvSubtitleOptions buildSubtitleOptions() {
         MpvSubtitleOptions.Builder builder = new MpvSubtitleOptions.Builder();
         if (SubtitleSetting.isPositionSet()) builder.setPosition(getSubtitlePosition());
         if (SubtitleSetting.isScaleApplied()) builder.setScale(SubtitleSetting.getAppliedScale());
-        if (SubtitleSetting.isSecondaryPositionSet()) builder.setSecondarySubtitlePosition(SubtitleSetting.getSecondaryPosition());
-        if (SubtitleSetting.isStyleForced()) builder.setSecondaryAssStyleOverride(true);
+        if (SubtitleSetting.isSecondaryPositionSet()) invokeSafe(builder, "setSecondarySubtitlePosition", new Class<?>[]{double.class}, SubtitleSetting.getSecondaryPosition());
+        if (SubtitleSetting.isStyleForced()) invokeSafe(builder, "setSecondaryAssStyleOverride", new Class<?>[]{boolean.class}, true);
         String fontFamily = SubtitleSetting.getFontFamily();
-        if (fontFamily != null) builder.setFontFamily(fontFamily).setFontsDirectory(ExternalFont.getDirectory().getAbsolutePath());
+        if (fontFamily != null) {
+            invokeSafe(builder, "setFontFamily", new Class<?>[]{String.class}, fontFamily);
+            invokeSafe(builder, "setFontsDirectory", new Class<?>[]{String.class}, ExternalFont.getDirectory().getAbsolutePath());
+        }
         if (SubtitleSetting.isCustomStyle()) builder.setCustomStyle(SubtitleSetting.getTextColor(), SubtitleSetting.getBackgroundColor(), SubtitleSetting.getEdgeType(), SubtitleSetting.getEdgeColor(), SubtitleSetting.getEdgeWidth(), SubtitleSetting.getShadow());
         else if (SubtitleSetting.isSystemStyle()) builder.setSystemCaptionStyle();
         return builder.build();
