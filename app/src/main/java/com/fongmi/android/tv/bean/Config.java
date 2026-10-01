@@ -90,6 +90,24 @@ public class Config {
         AppDatabase.get().getConfigDao().delete(url, type);
     }
 
+    public static void initPresets() {
+        long now = System.currentTimeMillis();
+        List<Config> presets = Preset.getVodPresets();
+        for (int i = presets.size() - 1; i >= 0; i--) {
+            Config preset = presets.get(i);
+            Config existing = AppDatabase.get().getConfigDao().find(preset.getUrl(), 0);
+            if (existing == null) {
+                preset.setTime(now + (presets.size() - i) * 1000L);
+                preset.save();
+            }
+        }
+        Config active = AppDatabase.get().getConfigDao().findOne(0);
+        if (active == null || active.isEmpty()) {
+            Config fullClean = AppDatabase.get().getConfigDao().find(Preset.FULL_CLEAN, 0);
+            if (fullClean != null) fullClean.update();
+        }
+    }
+
     public static Config vod() {
         Config item = AppDatabase.get().getConfigDao().findOne(0);
         return item == null ? create(0) : item;

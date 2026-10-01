@@ -12,9 +12,9 @@ import java.util.List;
 
 public class Depot {
 
-    @SerializedName("url")
+    @SerializedName(value = "url", alternate = {"sourceUrl"})
     private String url;
-    @SerializedName("name")
+    @SerializedName(value = "name", alternate = {"sourceName"})
     private String name;
 
     public static List<Depot> arrayFrom(String str) {

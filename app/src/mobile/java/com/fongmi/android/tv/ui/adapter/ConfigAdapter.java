@@ -7,7 +7,11 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.fongmi.android.tv.api.config.LiveConfig;
+import com.fongmi.android.tv.api.config.VodConfig;
+import com.fongmi.android.tv.api.config.WallConfig;
 import com.fongmi.android.tv.bean.Config;
+import com.fongmi.android.tv.bean.Preset;
 import com.fongmi.android.tv.databinding.AdapterConfigBinding;
 
 import java.util.List;
@@ -17,6 +21,7 @@ public class ConfigAdapter extends RecyclerView.Adapter<ConfigAdapter.ViewHolder
     private final OnClickListener listener;
     private List<Config> mItems;
     private boolean readOnly;
+    private int type;
 
     public ConfigAdapter(OnClickListener listener) {
         this.listener = listener;
@@ -35,9 +40,18 @@ public class ConfigAdapter extends RecyclerView.Adapter<ConfigAdapter.ViewHolder
     }
 
     public ConfigAdapter addAll(int type) {
+        this.type = type;
         mItems = Config.getAll(type);
-        if (!mItems.isEmpty() && !readOnly) mItems.remove(0);
         return this;
+    }
+
+    private boolean isActive(Config item) {
+        return switch (type) {
+            case 0 -> item.getUrl().equals(VodConfig.getUrl());
+            case 1 -> item.getUrl().equals(LiveConfig.getUrl());
+            case 2 -> item.getUrl().equals(WallConfig.getUrl());
+            default -> false;
+        };
     }
 
     public int remove(Config item) {
@@ -51,7 +65,7 @@ public class ConfigAdapter extends RecyclerView.Adapter<ConfigAdapter.ViewHolder
 
     @Override
     public int getItemCount() {
-        return mItems.size();
+        return mItems == null ? 0 : mItems.size();
     }
 
     @NonNull
@@ -63,9 +77,11 @@ public class ConfigAdapter extends RecyclerView.Adapter<ConfigAdapter.ViewHolder
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Config item = mItems.get(position);
-        holder.binding.text.setText(item.getDesc());
+        boolean active = isActive(item);
+        holder.binding.text.setText(active ? "✓ " + item.getDesc() : item.getDesc());
+        holder.binding.text.setSelected(active);
         holder.binding.text.setOnClickListener(v -> listener.onTextClick(item));
-        holder.binding.delete.setVisibility(readOnly ? View.GONE : View.VISIBLE);
+        holder.binding.delete.setVisibility(readOnly || Preset.isPreset(item.getUrl()) ? View.GONE : View.VISIBLE);
         holder.binding.delete.setOnClickListener(v -> listener.onDeleteClick(item));
     }
 

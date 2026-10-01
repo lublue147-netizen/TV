@@ -8,6 +8,7 @@ import com.fongmi.android.tv.api.loader.BaseLoader;
 import com.fongmi.android.tv.bean.Config;
 import com.fongmi.android.tv.bean.Depot;
 import com.fongmi.android.tv.bean.Parse;
+import com.fongmi.android.tv.bean.Preset;
 import com.fongmi.android.tv.bean.Rule;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.event.ConfigEvent;
@@ -70,6 +71,7 @@ public class VodConfig extends BaseConfig {
     }
 
     public VodConfig init() {
+        Config.initPresets();
         return config(Config.vod());
     }
 
@@ -123,7 +125,7 @@ public class VodConfig extends BaseConfig {
     private void checkJson(Config config, JsonObject object) throws Throwable {
         if (object.has("msg")) {
             throw new Exception(object.get("msg").getAsString());
-        } else if (object.has("urls")) {
+        } else if (object.has("urls") || object.has("storeHouse")) {
             parseDepot(config, object);
         } else {
             parseConfig(config, object);
@@ -131,12 +133,13 @@ public class VodConfig extends BaseConfig {
     }
 
     private void parseDepot(Config config, JsonObject object) throws Throwable {
-        List<Depot> items = Depot.arrayFrom(object.getAsJsonArray("urls").toString());
+        com.google.gson.JsonArray array = object.has("urls") ? object.getAsJsonArray("urls") : object.getAsJsonArray("storeHouse");
+        List<Depot> items = Depot.arrayFrom(array.toString());
         List<Config> configs = new ArrayList<>();
         for (Depot item : items) configs.add(Config.find(item, VOD));
         if (configs.isEmpty()) throw new Exception("Depot urls is empty");
         load(this.config = configs.get(0));
-        Config.delete(config.getUrl());
+        if (!Preset.isPreset(config.getUrl())) Config.delete(config.getUrl());
     }
 
     private void parseConfig(Config config, JsonObject object) {

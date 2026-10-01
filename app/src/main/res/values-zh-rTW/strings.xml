@@ -1,7 +1,7 @@
 <resources xmlns:xliff="http://schemas.android.com/apk/res-auto">
 
     <!-- App -->
-    <string name="app_name">影視</string>
+    <string name="app_name">TV</string>
 
     <!-- Live -->
     <string name="live_pass">密碼</string>
@@ -342,6 +342,8 @@
     <string name="dialog_config_hint">請輸入配置…</string>
     <string name="dialog_config_name">請輸入名稱…</string>
     <string name="dialog_config_url">請輸入網址…</string>
+    <string name="dialog_config_select">選擇配置</string>
+    <string name="dialog_config_preset">預設配置</string>
 
     <!-- Error -->
     <string name="error_config_get">配置取得失敗</string>

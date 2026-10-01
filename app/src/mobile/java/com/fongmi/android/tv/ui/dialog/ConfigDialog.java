@@ -17,11 +17,13 @@ import com.fongmi.android.tv.api.config.LiveConfig;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.api.config.WallConfig;
 import com.fongmi.android.tv.bean.Config;
+import com.fongmi.android.tv.bean.Preset;
 import com.fongmi.android.tv.databinding.DialogConfigBinding;
 import com.fongmi.android.tv.impl.ConfigListener;
 import com.fongmi.android.tv.ui.custom.CustomTextListener;
 import com.fongmi.android.tv.utils.FileChooser;
 import com.fongmi.android.tv.utils.UrlUtil;
+import com.google.android.material.chip.Chip;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 public class ConfigDialog extends BaseAlertDialog {
@@ -67,7 +69,17 @@ public class ConfigDialog extends BaseAlertDialog {
 
     @Override
     protected MaterialAlertDialogBuilder getBuilder() {
-        return builder().setTitle(type == 0 ? R.string.setting_vod : type == 1 ? R.string.setting_live : R.string.setting_wall).setView(getBinding().getRoot()).setPositiveButton(edit ? R.string.dialog_edit : R.string.dialog_positive, this::onPositive).setNegativeButton(R.string.dialog_negative, null);
+        return builder()
+                .setTitle(type == 0 ? R.string.setting_vod : type == 1 ? R.string.setting_live : R.string.setting_wall)
+                .setView(getBinding().getRoot())
+                .setPositiveButton(edit ? R.string.dialog_edit : R.string.dialog_positive, this::onPositive)
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setNeutralButton(R.string.dialog_config_select, (dialog, which) -> {
+                    dismiss();
+                    if (type == 0) HistoryDialog.create().vod().show(requireActivity());
+                    else if (type == 1) HistoryDialog.create().live().show(requireActivity());
+                    else if (type == 2) HistoryDialog.create().wall().show(requireActivity());
+                });
     }
 
     @Override
@@ -76,6 +88,26 @@ public class ConfigDialog extends BaseAlertDialog {
         binding.url.setText(ori = getConfig().getUrl());
         binding.input.setVisibility(edit ? View.VISIBLE : View.GONE);
         binding.url.setSelection(TextUtils.isEmpty(ori) ? 0 : ori.length());
+        initPresets();
+    }
+
+    private void initPresets() {
+        if (type != 0) {
+            binding.presetScroll.setVisibility(View.GONE);
+            return;
+        }
+        binding.presetScroll.setVisibility(View.VISIBLE);
+        binding.presets.removeAllViews();
+        for (Config item : Preset.getVodPresets()) {
+            Chip chip = new Chip(requireContext());
+            chip.setText(item.getName());
+            chip.setOnClickListener(v -> {
+                binding.name.setText(item.getName());
+                binding.url.setText(item.getUrl());
+                binding.url.setSelection(item.getUrl().length());
+            });
+            binding.presets.addView(chip);
+        }
     }
 
     @Override

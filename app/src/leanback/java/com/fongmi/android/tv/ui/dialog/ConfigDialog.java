@@ -89,6 +89,7 @@ public class ConfigDialog extends BaseAlertDialog {
     @Override
     protected void initEvent() {
         binding.choose.setOnClickListener(this::onChoose);
+        binding.select.setOnClickListener(this::onSelect);
         binding.positive.setOnClickListener(this::onPositive);
         binding.negative.setOnClickListener(this::onNegative);
         binding.text.addTextChangedListener(new CustomTextListener() {
@@ -101,6 +102,15 @@ public class ConfigDialog extends BaseAlertDialog {
             if (actionId == EditorInfo.IME_ACTION_DONE) binding.positive.performClick();
             return true;
         });
+    }
+
+    private void onSelect(View view) {
+        dismiss();
+        switch (type) {
+            case 0 -> HistoryDialog.create().vod().show(requireActivity());
+            case 1 -> HistoryDialog.create().live().show(requireActivity());
+            case 2 -> HistoryDialog.create().wall().show(requireActivity());
+        }
     }
 
     private String getUrl() {
