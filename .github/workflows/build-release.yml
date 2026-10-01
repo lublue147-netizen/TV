@@ -48,13 +48,16 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Accept Android SDK Licenses
-        run: yes | sdkmanager --licenses || true
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
       - name: Download Player Dependencies (Media3 AARs)
         run: |
           mkdir -p app/libs
           echo "Downloading Media3 AAR dependencies..."
-          curl -sL "https://github.com/top355/media/releases/download/libs/media3-aars.zip" -o /tmp/media3-aars.zip
+          curl -fSL --retry 5 --retry-delay 3 "https://github.com/lublue147-netizen/TV/releases/download/v5.6.3/media3-aars.zip" -o /tmp/media3-aars.zip || \
+          curl -fSL --retry 5 --retry-delay 3 "https://github.com/top355/media/releases/download/libs/media3-aars.zip" -o /tmp/media3-aars.zip
+          unzip -t /tmp/media3-aars.zip
           unzip -q -o /tmp/media3-aars.zip -d app/libs/
           ls -lh app/libs/
 
