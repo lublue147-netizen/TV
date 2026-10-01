@@ -49,6 +49,7 @@
     <string name="play_scale">原始</string>
     <string name="play_config">配置</string>
     <string name="play_change">换源</string>
+    <string name="play_full">全屏</string>
     <string name="play_invert">反转</string>
     <string name="play_across">跨类</string>
     <string name="play_reverse">倒序</string>

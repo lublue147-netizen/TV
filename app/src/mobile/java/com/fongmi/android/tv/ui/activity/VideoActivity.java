@@ -328,6 +328,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.content.setOnLongClickListener(view -> onCopy());
         mBinding.control.back.setOnClickListener(view -> onBack());
         mBinding.control.cast.setOnClickListener(view -> onCast());
+        mBinding.control.full.setOnClickListener(view -> onFull());
         mBinding.control.info.setOnClickListener(view -> onInfo());
         mBinding.control.keep.setOnClickListener(view -> onKeep());
         mBinding.control.play.setOnClickListener(view -> checkPlay());
@@ -359,6 +360,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.action.ending.setOnLongClickListener(view -> onEndingReset());
         mBinding.control.action.opening.setOnLongClickListener(view -> onOpeningReset());
         mBinding.video.setOnTouchListener((view, event) -> mKeyDown.onTouchEvent(event));
+        mBinding.control.getRoot().setOnTouchListener((view, event) -> mKeyDown.onTouchEvent(event));
         mBinding.control.action.getRoot().setOnTouchListener(this::onActionTouch);
         mBinding.swipeLayout.setOnRefreshListener(this::onSwipeRefresh);
     }
@@ -942,8 +944,18 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void onRotate() {
         setR1Callback();
-        setRotate(!isRotate());
-        setRequestedOrientation(PlaybackOrientation.getRotateOrientation(this));
+        if (!isFullscreen()) {
+            enterFullscreen();
+        } else {
+            setRotate(!isRotate());
+            setRequestedOrientation(PlaybackOrientation.getRotateOrientation(this));
+        }
+    }
+
+    private void onFull() {
+        setR1Callback();
+        if (isFullscreen()) exitFullscreen();
+        else enterFullscreen();
     }
 
     private void onTrack(View view) {
@@ -1092,6 +1104,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
         setRequestedOrientation(PlaybackOrientation.getEnterFullscreenOrientation(player().isPortrait()));
         mBinding.control.title.setVisibility(View.VISIBLE);
+        mBinding.control.full.setImageResource(androidx.media3.ui.R.drawable.exo_icon_fullscreen_exit);
         setRotate(player().isPortrait());
         mKeyDown.resetScale();
         App.post(mR3, 2000);
@@ -1105,6 +1118,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         setRequestedOrientation(PlaybackOrientation.getExitFullscreenOrientation(isPort()));
         mBinding.episode.postDelayed(() -> mBinding.episode.scrollToPosition(mEpisodeAdapter.getPosition()), 100);
         mBinding.control.title.setVisibility(View.INVISIBLE);
+        mBinding.control.full.setImageResource(androidx.media3.ui.R.drawable.exo_icon_fullscreen_enter);
         mBinding.video.setLayoutParams(mFrameParams);
         mKeyDown.resetScale();
         App.post(mR3, 2000);
@@ -1159,7 +1173,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (service() == null || isInPictureInPictureMode()) return;
         mBinding.control.danmaku.setVisibility(isLock() || !player().haveDanmaku() ? View.GONE : View.VISIBLE);
         mBinding.control.setting.setVisibility(mHistory == null || isFullscreen() ? View.GONE : View.VISIBLE);
-        mBinding.control.right.rotate.setVisibility(isFullscreen() && !isLock() ? View.VISIBLE : View.GONE);
+        mBinding.control.right.rotate.setVisibility(isLock() ? View.GONE : View.VISIBLE);
+        mBinding.control.full.setImageResource(isFullscreen() ? androidx.media3.ui.R.drawable.exo_icon_fullscreen_exit : androidx.media3.ui.R.drawable.exo_icon_fullscreen_enter);
         mBinding.control.keep.setVisibility(mHistory == null || isFullscreen() ? View.GONE : View.VISIBLE);
         mBinding.control.action.getRoot().setVisibility(isFullscreen() ? View.VISIBLE : View.GONE);
         mBinding.control.right.lock.setVisibility(isFullscreen() ? View.VISIBLE : View.GONE);

@@ -293,6 +293,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     @Override
     @SuppressLint("ClickableViewAccessibility")
     protected void initEvent() {
+        mBinding.full.setOnClickListener(view -> enterFullscreen());
         mBinding.keep.setOnClickListener(view -> onKeep());
         mBinding.video.setOnClickListener(view -> onVideo());
         mBinding.change.setOnClickListener(view -> onChange());
