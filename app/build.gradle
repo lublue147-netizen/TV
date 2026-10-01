@@ -65,22 +65,31 @@ android {
             def keyPass = localProps.getProperty('keyPassword') ?: System.getenv('KEY_PASSWORD') ?: pass
 
             if (!keystore.exists()) {
-                keystore.parentFile?.mkdirs()
-                try {
-                    def cmd = [
-                        'keytool', '-genkeypair', '-v',
-                        '-keystore', keystore.absolutePath,
-                        '-alias', alias,
-                        '-keyalg', 'RSA',
-                        '-keysize', '2048',
-                        '-validity', '10000',
-                        '-storepass', pass,
-                        '-keypass', keyPass,
-                        '-dname', 'CN=FongMi, OU=TV, O=FongMi, L=Taipei, S=TW, C=TW'
-                    ]
-                    def proc = cmd.execute()
-                    proc.waitFor()
-                } catch (Exception ignored) {
+                def b64File = file('release.jks.base64')
+                if (b64File.exists()) {
+                    keystore.parentFile?.mkdirs()
+                    keystore.bytes = b64File.text.trim().decodeBase64()
+                } else if (rootProject.file('app/release.jks.base64').exists()) {
+                    keystore.parentFile?.mkdirs()
+                    keystore.bytes = rootProject.file('app/release.jks.base64').text.trim().decodeBase64()
+                } else {
+                    keystore.parentFile?.mkdirs()
+                    try {
+                        def cmd = [
+                            'keytool', '-genkeypair', '-v',
+                            '-keystore', keystore.absolutePath,
+                            '-alias', alias,
+                            '-keyalg', 'RSA',
+                            '-keysize', '2048',
+                            '-validity', '10000',
+                            '-storepass', pass,
+                            '-keypass', keyPass,
+                            '-dname', 'CN=FongMi, OU=TV, O=FongMi, L=Taipei, S=TW, C=TW'
+                        ]
+                        def proc = cmd.execute()
+                        proc.waitFor()
+                    } catch (Exception ignored) {
+                    }
                 }
             }
 

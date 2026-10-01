@@ -61,13 +61,17 @@ jobs:
       - name: Setup Keystore
         run: |
           mkdir -p app
-          if [ ! -f "app/release.jks" ]; then
+          if [ -f "app/release.jks.base64" ]; then
+            echo "Decoding permanent release.jks from app/release.jks.base64..."
+            base64 -d app/release.jks.base64 > app/release.jks
+          elif [ ! -f "app/release.jks" ]; then
             echo "Generating release keystore..."
             keytool -genkeypair -v -keystore app/release.jks \
               -alias fongmi -keyalg RSA -keysize 2048 -validity 10000 \
               -storepass 123456 -keypass 123456 \
               -dname "CN=FongMi, OU=TV, O=FongMi, L=Taipei, S=TW, C=TW"
           fi
+          ls -lh app/release.jks
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew

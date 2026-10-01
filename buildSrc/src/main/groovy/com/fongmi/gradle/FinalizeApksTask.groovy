@@ -133,7 +133,7 @@ abstract class FinalizeApkWorkAction implements WorkAction<FinalizeApkParameters
                     '-jar', parameters.apksignerJar.get().asFile.absolutePath,
                     'sign', '--ks', parameters.signingStoreFile.get().asFile.absolutePath,
                     '--ks-key-alias', parameters.keyAlias.get(), '--ks-pass', 'env:APK_KS_PASS',
-                    '--key-pass', 'env:APK_KEY_PASS', '--v1-signing-enabled', 'false',
+                    '--key-pass', 'env:APK_KEY_PASS', '--v1-signing-enabled', 'true',
                     '--v2-signing-enabled', 'true', '--v3-signing-enabled', 'false',
                     '--v4-signing-enabled', 'false', '--out', outputApk.absolutePath, inputApk.absolutePath
         }
