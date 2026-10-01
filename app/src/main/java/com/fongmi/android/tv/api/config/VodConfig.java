@@ -12,6 +12,7 @@ import com.fongmi.android.tv.bean.Preset;
 import com.fongmi.android.tv.bean.Rule;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.event.ConfigEvent;
+import com.fongmi.android.tv.event.DepotEvent;
 import com.fongmi.android.tv.event.RefreshEvent;
 import com.fongmi.android.tv.impl.Callback;
 import com.fongmi.android.tv.utils.UrlUtil;
@@ -19,6 +20,7 @@ import com.github.catvod.bean.Doh;
 import com.github.catvod.bean.Header;
 import com.github.catvod.bean.Proxy;
 import com.github.catvod.utils.Json;
+import com.github.catvod.utils.Prefers;
 import com.google.gson.JsonObject;
 
 import java.util.ArrayList;
@@ -41,6 +43,8 @@ public class VodConfig extends BaseConfig {
     private List<String> ads;
     private List<String> flags;
     private List<Parse> parses;
+    private List<Depot> depots;
+    private Config depotConfig;
 
     public static VodConfig get() {
         return Loader.INSTANCE;
@@ -64,6 +68,55 @@ public class VodConfig extends BaseConfig {
 
     public static boolean hasParse() {
         return !get().getParses().isEmpty();
+    }
+
+    public boolean hasDepot() {
+        return !getDepots().isEmpty();
+    }
+
+    public List<Depot> getDepots() {
+        if (depots == null) {
+            String json = Prefers.getString("depot_json");
+            if (!TextUtils.isEmpty(json)) {
+                depots = Depot.arrayFrom(json);
+            }
+        }
+        return depots == null ? Collections.emptyList() : depots;
+    }
+
+    public Config getDepotConfig() {
+        if (depotConfig == null) {
+            String url = Prefers.getString("depot_url");
+            String name = Prefers.getString("depot_name");
+            if (!TextUtils.isEmpty(url)) {
+                depotConfig = Config.find(url, name, VOD);
+            }
+        }
+        return depotConfig;
+    }
+
+    public void setDepots(Config config, List<Depot> items) {
+        this.depotConfig = config;
+        this.depots = items;
+        Prefers.put("depot_url", config.getUrl());
+        Prefers.put("depot_name", config.getName());
+        Prefers.put("depot_json", App.gson().toJson(items));
+    }
+
+    public boolean isChildOfDepot(String url) {
+        if (TextUtils.isEmpty(url) || !hasDepot()) return false;
+        for (Depot item : getDepots()) {
+            if (url.equals(item.getUrl())) return true;
+        }
+        return false;
+    }
+
+    public void clearDepot() {
+        this.depots = null;
+        this.depotConfig = null;
+        Prefers.remove("depot_url");
+        Prefers.remove("depot_name");
+        Prefers.remove("depot_json");
     }
 
     public static void load(Config config, Callback callback) {
@@ -135,14 +188,16 @@ public class VodConfig extends BaseConfig {
     private void parseDepot(Config config, JsonObject object) throws Throwable {
         com.google.gson.JsonArray array = object.has("urls") ? object.getAsJsonArray("urls") : object.getAsJsonArray("storeHouse");
         List<Depot> items = Depot.arrayFrom(array.toString());
-        List<Config> configs = new ArrayList<>();
-        for (Depot item : items) configs.add(Config.find(item, VOD));
-        if (configs.isEmpty()) throw new Exception("Depot urls is empty");
-        load(this.config = configs.get(0));
+        if (items.isEmpty()) throw new Exception("Depot urls is empty");
+        setDepots(config, items);
         if (!Preset.isPreset(config.getUrl())) Config.delete(config.getUrl());
+        App.post(() -> DepotEvent.post(config, items));
     }
 
     private void parseConfig(Config config, JsonObject object) {
+        if (!isChildOfDepot(config.getUrl()) && !Preset.isDepot(config.getUrl())) {
+            clearDepot();
+        }
         initList(object);
         initLive(config, object);
         initWall(config, object);

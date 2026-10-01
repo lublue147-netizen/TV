@@ -3,7 +3,9 @@ package com.fongmi.android.tv.ui.dialog;
 import androidx.fragment.app.FragmentActivity;
 import androidx.viewbinding.ViewBinding;
 
+import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.Config;
+import com.fongmi.android.tv.bean.Preset;
 import com.fongmi.android.tv.databinding.DialogHistoryBinding;
 import com.fongmi.android.tv.impl.ConfigListener;
 import com.fongmi.android.tv.ui.adapter.ConfigAdapter;
@@ -66,6 +68,11 @@ public class HistoryDialog extends BaseAlertDialog implements ConfigAdapter.OnCl
 
     @Override
     public void onTextClick(Config item) {
+        if (item.getType() == 0 && Preset.isDepot(item.getUrl()) && VodConfig.get().hasDepot() && item.getUrl().equals(VodConfig.get().getDepotConfig().getUrl())) {
+            dismiss();
+            DepotDialog.create().show(requireActivity());
+            return;
+        }
         ((ConfigListener) requireActivity()).setConfig(item);
         dismiss();
     }

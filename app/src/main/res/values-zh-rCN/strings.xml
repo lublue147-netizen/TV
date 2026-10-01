@@ -344,6 +344,8 @@
     <string name="dialog_config_url">请输入地址…</string>
     <string name="dialog_config_select">选择配置</string>
     <string name="dialog_config_preset">预设配置</string>
+    <string name="dialog_depot_title">选择仓库</string>
+    <string name="setting_depot">多仓</string>
 
     <!-- Error -->
     <string name="error_config_get">配置取得失败</string>

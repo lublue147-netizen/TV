@@ -47,13 +47,14 @@ import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.PermissionUtil;
 import com.fongmi.android.tv.utils.UrlUtil;
 import com.fongmi.android.tv.utils.Util;
+import com.fongmi.android.tv.impl.ConfigListener;
 import com.github.catvod.net.OkHttp;
 import com.google.android.material.navigation.NavigationBarView;
 
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
-public class HomeActivity extends BaseActivity implements NavigationBarView.OnItemSelectedListener {
+public class HomeActivity extends BaseActivity implements NavigationBarView.OnItemSelectedListener, ConfigListener {
 
     private FragmentStateManager mManager;
     private ActivityHomeBinding mBinding;
@@ -143,6 +144,12 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
                 Notify.show(msg);
             }
         };
+    }
+
+    @Override
+    public void setConfig(Config config) {
+        Notify.progress(this);
+        VodConfig.load(config, getCallback());
     }
 
     private void loadLive(String url) {

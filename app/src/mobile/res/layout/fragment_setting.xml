@@ -73,6 +73,16 @@
                     android:src="@drawable/ic_setting_home" />
 
                 <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/vodDepot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="12dp"
+                    android:background="@drawable/shape_item"
+                    android:padding="7dp"
+                    android:src="@drawable/ic_setting_depot"
+                    android:visibility="gone" />
+
+                <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/vodHistory"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

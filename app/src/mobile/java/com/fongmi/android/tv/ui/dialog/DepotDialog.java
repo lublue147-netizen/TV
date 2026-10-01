@@ -7,47 +7,26 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.viewbinding.ViewBinding;
 
+import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.Config;
-import com.fongmi.android.tv.bean.Preset;
+import com.fongmi.android.tv.bean.Depot;
 import com.fongmi.android.tv.databinding.DialogHistoryBinding;
+import com.fongmi.android.tv.impl.Callback;
 import com.fongmi.android.tv.impl.ConfigListener;
-import com.fongmi.android.tv.ui.adapter.ConfigAdapter;
+import com.fongmi.android.tv.ui.adapter.DepotAdapter;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
-public class HistoryDialog extends BaseAlertDialog implements ConfigAdapter.OnClickListener {
+public class DepotDialog extends BaseAlertDialog implements DepotAdapter.OnClickListener {
 
     private DialogHistoryBinding binding;
     private ConfigListener listener;
-    private ConfigAdapter adapter;
+    private DepotAdapter adapter;
 
-    private int type;
-    private boolean readOnly;
-
-    public static HistoryDialog create() {
-        return new HistoryDialog();
-    }
-
-    public HistoryDialog vod() {
-        type = 0;
-        return this;
-    }
-
-    public HistoryDialog live() {
-        type = 1;
-        return this;
-    }
-
-    public HistoryDialog wall() {
-        type = 2;
-        return this;
-    }
-
-    public HistoryDialog readOnly() {
-        readOnly = true;
-        return this;
+    public static DepotDialog create() {
+        return new DepotDialog();
     }
 
     public void show(FragmentActivity activity) {
@@ -65,7 +44,7 @@ public class HistoryDialog extends BaseAlertDialog implements ConfigAdapter.OnCl
     @Override
     public void onAttach(@NonNull Context context) {
         super.onAttach(context);
-        listener = isFull() ? (ConfigListener) context : (ConfigListener) getParentFragment();
+        listener = isFull() ? (context instanceof ConfigListener ? (ConfigListener) context : null) : (getParentFragment() instanceof ConfigListener ? (ConfigListener) getParentFragment() : null);
     }
 
     @Override
@@ -75,34 +54,26 @@ public class HistoryDialog extends BaseAlertDialog implements ConfigAdapter.OnCl
 
     @Override
     protected MaterialAlertDialogBuilder getBuilder() {
-        return builder().setView(getBinding().getRoot());
+        return builder().setTitle(R.string.dialog_depot_title).setView(getBinding().getRoot());
     }
 
     @Override
     protected void initView() {
-        adapter = new ConfigAdapter(this);
+        adapter = new DepotAdapter(this);
         binding.recycler.setItemAnimator(null);
         binding.recycler.setHasFixedSize(false);
-        if (isFull()) binding.recycler.setMaxHeight(ResUtil.dp2px(264));
+        if (isFull()) binding.recycler.setMaxHeight(ResUtil.dp2px(350));
         binding.recycler.addItemDecoration(new SpaceItemDecoration(1, 8));
-        binding.recycler.setAdapter(adapter.readOnly(readOnly).addAll(type));
+        binding.recycler.setAdapter(adapter.addAll(VodConfig.get().getDepots()));
+        binding.recycler.scrollToPosition(adapter.getPosition());
     }
 
     @Override
-    public void onTextClick(Config item) {
-        if (item.getType() == 0 && Preset.isDepot(item.getUrl()) && VodConfig.get().hasDepot() && item.getUrl().equals(VodConfig.get().getDepotConfig().getUrl())) {
-            dismiss();
-            if (isFull()) DepotDialog.create().show(requireActivity());
-            else DepotDialog.create().show(requireParentFragment());
-            return;
-        }
-        listener.setConfig(item);
+    public void onItemClick(Depot item) {
         dismiss();
-    }
-
-    @Override
-    public void onDeleteClick(Config item) {
-        if (adapter.remove(item) == 0) dismiss();
+        Config config = Config.find(item.getUrl(), item.getName(), Config.VOD);
+        if (listener != null) listener.setConfig(config);
+        else VodConfig.load(config, new Callback());
     }
 
     @Override

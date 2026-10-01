@@ -18,6 +18,10 @@ public class Preset {
         return url != null && URLS.contains(url);
     }
 
+    public static boolean isDepot(String url) {
+        return MULTI_CLEAN.equals(url) || MULTI_ADULT.equals(url);
+    }
+
     public static List<Config> getVodPresets() {
         List<Config> items = new ArrayList<>();
         items.add(Config.create(0).url(FULL_CLEAN).name("完整聚合源（无成人）"));

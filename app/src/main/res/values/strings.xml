@@ -345,6 +345,8 @@
     <string name="dialog_config_url">Please enter the url…</string>
     <string name="dialog_config_select">Select Config</string>
     <string name="dialog_config_preset">Preset Configs</string>
+    <string name="dialog_depot_title">Select Warehouse</string>
+    <string name="setting_depot">Depot</string>
 
     <!-- Error -->
     <string name="error_config_get">Configuration get failed</string>

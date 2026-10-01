@@ -30,4 +30,26 @@ public class Depot {
     public String getName() {
         return TextUtils.isEmpty(name) ? getUrl() : name;
     }
+
+    private boolean selected;
+
+    public boolean isSelected() {
+        return selected;
+    }
+
+    public void setSelected(boolean selected) {
+        this.selected = selected;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof Depot it)) return false;
+        return getUrl().equals(it.getUrl());
+    }
+
+    @Override
+    public int hashCode() {
+        return getUrl().hashCode();
+    }
 }

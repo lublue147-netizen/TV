@@ -160,7 +160,8 @@ public class ConfigDialog extends BaseAlertDialog {
         String name = binding.name.getText().toString().trim();
         if (edit) Config.find(ori, type).url(url).name(name).update();
         if (url.isEmpty()) Config.delete(ori, type);
-        ((ConfigListener) requireParentFragment()).setConfig(Config.find(url, type));
+        if (name.isEmpty()) ((ConfigListener) requireParentFragment()).setConfig(Config.find(url, type));
+        else ((ConfigListener) requireParentFragment()).setConfig(Config.find(url, name, type));
         dismiss();
     }
 

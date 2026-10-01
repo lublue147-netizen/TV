@@ -344,6 +344,8 @@
     <string name="dialog_config_url">請輸入網址…</string>
     <string name="dialog_config_select">選擇配置</string>
     <string name="dialog_config_preset">預設配置</string>
+    <string name="dialog_depot_title">選擇倉庫</string>
+    <string name="setting_depot">多倉</string>
 
     <!-- Error -->
     <string name="error_config_get">配置取得失敗</string>

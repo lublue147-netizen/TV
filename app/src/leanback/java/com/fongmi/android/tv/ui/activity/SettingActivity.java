@@ -19,6 +19,7 @@ import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.databinding.ActivitySettingBinding;
 import com.fongmi.android.tv.db.BackupManager;
 import com.fongmi.android.tv.event.ConfigEvent;
+import com.fongmi.android.tv.event.DepotEvent;
 import com.fongmi.android.tv.event.RefreshEvent;
 import com.fongmi.android.tv.impl.Callback;
 import com.fongmi.android.tv.impl.ConfigListener;
@@ -28,6 +29,7 @@ import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.ui.dialog.ConfigDialog;
+import com.fongmi.android.tv.ui.dialog.DepotDialog;
 import com.fongmi.android.tv.ui.dialog.DohDialog;
 import com.fongmi.android.tv.ui.dialog.HistoryDialog;
 import com.fongmi.android.tv.ui.dialog.LiveDialog;
@@ -74,6 +76,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     protected void initView(Bundle savedInstanceState) {
         mBinding.vod.requestFocus();
         mBinding.vodUrl.setText(VodConfig.getDesc());
+        mBinding.vodDepot.setVisibility(VodConfig.get().hasDepot() ? View.VISIBLE : View.GONE);
         mBinding.liveUrl.setText(LiveConfig.getDesc());
         mBinding.wallUrl.setText(WallConfig.getDesc());
         mBinding.versionText.setText(BuildConfig.VERSION_NAME);
@@ -111,6 +114,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.version.setOnClickListener(this::onVersion);
         mBinding.vod.setOnLongClickListener(this::onVodEdit);
         mBinding.vodHome.setOnClickListener(this::onVodHome);
+        mBinding.vodDepot.setOnClickListener(this::onVodDepot);
         mBinding.live.setOnLongClickListener(this::onLiveEdit);
         mBinding.liveHome.setOnClickListener(this::onLiveHome);
         mBinding.wall.setOnLongClickListener(this::onWallEdit);
@@ -157,6 +161,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
             public void success() {
                 Notify.dismiss();
                 setCacheText();
+                mBinding.vodDepot.setVisibility(VodConfig.get().hasDepot() ? View.VISIBLE : View.GONE);
             }
 
             @Override
@@ -206,6 +211,18 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
 
     private void onVodHome(View view) {
         SiteDialog.create().action().show(this);
+    }
+
+    private void onVodDepot(View view) {
+        DepotDialog.create().show(this);
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onDepotEvent(DepotEvent event) {
+        mBinding.vodDepot.setVisibility(View.VISIBLE);
+        if (getLifecycle().getCurrentState().isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+            DepotDialog.create().show(this);
+        }
     }
 
     private void onLiveHome(View view) {
