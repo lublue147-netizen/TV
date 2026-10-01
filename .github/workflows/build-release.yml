@@ -81,7 +81,7 @@ jobs:
 
       - name: Build Leanback and Mobile Release APKs
         run: |
-          ./gradlew :app:assembleLeanbackRelease :app:assembleMobileRelease --stacktrace
+          ./gradlew :app:assembleLeanbackRelease :app:assembleMobileRelease --no-daemon --stacktrace
 
       - name: Check Output APKs
         run: |

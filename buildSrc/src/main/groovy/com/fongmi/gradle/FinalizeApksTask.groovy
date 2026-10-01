@@ -121,21 +121,29 @@ abstract class FinalizeApkWorkAction implements WorkAction<FinalizeApkParameters
 
     private void align(File inputApk, File outputApk) {
         execOperations.exec {
+            standardInput = new ByteArrayInputStream(new byte[0])
             commandLine parameters.zipalignFile.get().asFile.absolutePath, '-P', '16', '-f', '4', inputApk.absolutePath, outputApk.absolutePath
         }
     }
 
     private void sign(File inputApk, File outputApk) {
+        def storePass = parameters.storePassword.get()
+        def keyPass = parameters.keyPassword.get()
         execOperations.exec {
-            environment 'APK_KS_PASS', parameters.storePassword.get()
-            environment 'APK_KEY_PASS', parameters.keyPassword.get()
+            standardInput = new ByteArrayInputStream(new byte[0])
+            environment 'APK_KS_PASS', storePass
+            environment 'APK_KEY_PASS', keyPass
             commandLine parameters.javaExecutable.get().asFile.absolutePath,
                     '-jar', parameters.apksignerJar.get().asFile.absolutePath,
                     'sign', '--ks', parameters.signingStoreFile.get().asFile.absolutePath,
-                    '--ks-key-alias', parameters.keyAlias.get(), '--ks-pass', 'env:APK_KS_PASS',
-                    '--key-pass', 'env:APK_KEY_PASS', '--v1-signing-enabled', 'true',
-                    '--v2-signing-enabled', 'true', '--v3-signing-enabled', 'false',
-                    '--v4-signing-enabled', 'false', '--out', outputApk.absolutePath, inputApk.absolutePath
+                    '--ks-key-alias', parameters.keyAlias.get(),
+                    '--ks-pass', "pass:${storePass}",
+                    '--key-pass', "pass:${keyPass}",
+                    '--v1-signing-enabled', 'true',
+                    '--v2-signing-enabled', 'true',
+                    '--v3-signing-enabled', 'false',
+                    '--v4-signing-enabled', 'false',
+                    '--out', outputApk.absolutePath, inputApk.absolutePath
         }
     }
 }
