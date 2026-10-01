@@ -50,6 +50,14 @@ jobs:
       - name: Accept Android SDK Licenses
         run: yes | sdkmanager --licenses || true
 
+      - name: Download Player Dependencies (Media3 AARs)
+        run: |
+          mkdir -p app/libs
+          echo "Downloading Media3 AAR dependencies..."
+          curl -sL "https://github.com/top355/media/releases/download/libs/media3-aars.zip" -o /tmp/media3-aars.zip
+          unzip -q -o /tmp/media3-aars.zip -d app/libs/
+          ls -lh app/libs/
+
       - name: Setup Keystore
         run: |
           mkdir -p app
@@ -111,9 +119,11 @@ jobs:
         with:
           tag_name: ${{ steps.release_info.outputs.tag }}
           name: ${{ steps.release_info.outputs.title }}
+          target_commitish: ${{ github.sha }}
           files: Release/apk/*.apk
           generate_release_notes: true
           draft: false
           prerelease: false
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
