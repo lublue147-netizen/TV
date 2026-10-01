@@ -57,7 +57,7 @@ public class DepotDialog extends BaseAlertDialog implements DepotAdapter.OnClick
     @Override
     public void onItemClick(Depot item) {
         dismiss();
-        Config config = Config.find(item.getUrl(), item.getName(), Config.VOD);
+        Config config = Config.find(item, 0);
         if (requireActivity() instanceof ConfigListener cl) cl.setConfig(config);
         else VodConfig.load(config, new Callback());
     }
