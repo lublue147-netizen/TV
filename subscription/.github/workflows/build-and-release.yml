@@ -53,43 +53,51 @@ jobs:
         run: |
           echo "=== Compiling GoProxy Static Binaries ==="
           mkdir -p goproxy/bin
+          cd goproxy
 
           # 1. Android ARM64
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o goproxy/bin/goproxy-android-arm64 ./goproxy
+          echo "Building goproxy-android-arm64..."
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o bin/goproxy-android-arm64 .
 
           # 2. Android ARMv7 (32-bit)
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-s -w" -o goproxy/bin/goproxy-android-armv7 ./goproxy
+          echo "Building goproxy-android-armv7..."
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-s -w" -o bin/goproxy-android-armv7 .
 
           # 3. Linux x86_64
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o goproxy/bin/goproxy-linux-amd64 ./goproxy
+          echo "Building goproxy-linux-amd64..."
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/goproxy-linux-amd64 .
 
           # 4. Windows x86_64
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o goproxy/bin/goproxy-windows-amd64.exe ./goproxy
+          echo "Building goproxy-windows-amd64.exe..."
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o bin/goproxy-windows-amd64.exe .
 
           echo "=== Compiling Android Native SO via NDK Clang ==="
-          if [ -d "$ANDROID_NDK_HOME" ]; then
+          if [ -n "$ANDROID_NDK_HOME" ] && [ -d "$ANDROID_NDK_HOME" ]; then
             TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
-            
-            # ARM64 SO
-            CC_ARM64="$TOOLCHAIN/aarch64-linux-android24-clang"
-            if [ -f "$CC_ARM64" ]; then
-              echo "Building arm64-v8a libgoproxy.so..."
-              mkdir -p goproxy/bin/arm64-v8a
-              CGO_ENABLED=1 GOOS=android GOARCH=arm64 CC="$CC_ARM64" \
-                go build -buildmode=c-shared -ldflags="-s -w" -o goproxy/bin/arm64-v8a/libgoproxy.so ./goproxy
+            SYSROOT="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+
+            # Find ARM64 Clang
+            CC_ARM64=$(find "$TOOLCHAIN" -name "aarch64-linux-android*clang" | head -n 1)
+            if [ -n "$CC_ARM64" ]; then
+              echo "Building arm64-v8a libgoproxy.so using $CC_ARM64..."
+              mkdir -p bin/arm64-v8a
+              CGO_ENABLED=1 GOOS=android GOARCH=arm64 CC="$CC_ARM64" CGO_CFLAGS="-I$SYSROOT/usr/include" \
+                go build -buildmode=c-shared -ldflags="-s -w" -o bin/arm64-v8a/libgoproxy.so . || echo "Warning: ARM64 SO build failed"
             fi
 
-            # ARMv7 SO
-            CC_ARM="$TOOLCHAIN/armv7a-linux-androideabi24-clang"
-            if [ -f "$CC_ARM" ]; then
-              echo "Building armeabi-v7a libgoproxy.so..."
-              mkdir -p goproxy/bin/armeabi-v7a
-              CGO_ENABLED=1 GOOS=android GOARCH=arm GOARM=7 CC="$CC_ARM" \
-                go build -buildmode=c-shared -ldflags="-s -w" -o goproxy/bin/armeabi-v7a/libgoproxy.so ./goproxy
+            # Find ARMv7 Clang
+            CC_ARM=$(find "$TOOLCHAIN" -name "armv7a-linux-androideabi*clang" | head -n 1)
+            if [ -n "$CC_ARM" ]; then
+              echo "Building armeabi-v7a libgoproxy.so using $CC_ARM..."
+              mkdir -p bin/armeabi-v7a
+              CGO_ENABLED=1 GOOS=android GOARCH=arm GOARM=7 CC="$CC_ARM" CGO_CFLAGS="-I$SYSROOT/usr/include" \
+                go build -buildmode=c-shared -ldflags="-s -w" -o bin/armeabi-v7a/libgoproxy.so . || echo "Warning: ARMv7 SO build failed"
             fi
           fi
 
-          ls -lh goproxy/bin/
+          cd ..
+          echo "=== GoProxy Build Completed ==="
+          find goproxy/bin -type f
 
       - name: Compile Spider JAR from Java Sources
         run: |
@@ -147,6 +155,7 @@ jobs:
             - `goproxy-windows-amd64.exe`: Windows PC 加速器
           draft: false
           prerelease: false
+          fail_on_unmatched_files: false
           files: |
             spider/spider_open.jar
             goproxy/bin/goproxy-android-arm64

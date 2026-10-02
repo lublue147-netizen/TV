@@ -129,7 +129,10 @@ public class GoProxy {
             sb.append("http://127.0.0.1:").append(port).append("/play?url=")
               .append(URLEncoder.encode(rawUrl, "UTF-8"));
             if (headers != null && !headers.isEmpty()) {
-                org.json.JSONObject obj = new org.json.JSONObject(headers);
+                org.json.JSONObject obj = new org.json.JSONObject();
+                for (Map.Entry<String, String> entry : headers.entrySet()) {
+                    obj.put(entry.getKey(), entry.getValue());
+                }
                 sb.append("&headers=").append(URLEncoder.encode(obj.toString(), "UTF-8"));
             }
             return sb.toString();
