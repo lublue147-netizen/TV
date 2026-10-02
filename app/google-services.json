@@ -1,14 +1,13 @@
 {
   "project_info": {
-    "project_number": "100000000000",
-    "firebase_url": "https://tv-lublue-default-rtdb.firebaseio.com",
-    "project_id": "tv-lublue",
-    "storage_bucket": "tv-lublue.appspot.com"
+    "project_number": "1041177100158",
+    "project_id": "test-8b509",
+    "storage_bucket": "test-8b509.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:100000000000:android:0123456789abcdef012345",
+        "mobilesdk_app_id": "1:1041177100158:android:48d4df913de131d519bd2f",
         "android_client_info": {
           "package_name": "com.lublue.android.tv"
         }
@@ -16,13 +15,10 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyD-PlaceholderKeyForLublueTvApp00"
+          "current_key": "AIzaSyCP0QDG5D2sM1v8FPWKUsg2Cq111uL1Kts"
         }
       ],
       "services": {
-        "analytics_service": {
-          "status": 1
-        },
         "appinvite_service": {
           "other_platform_oauth_client": []
         }
