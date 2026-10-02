@@ -123,8 +123,10 @@ public class PlaySpec {
     }
 
     public PlaySpec checkUa() {
-        if (headers == null) headers = new HashMap<>();
-        if (headers.keySet().stream().noneMatch(HttpHeaders.USER_AGENT::equalsIgnoreCase)) headers.put(HttpHeaders.USER_AGENT, Setting.getUa().isEmpty() ? MediaItemFactory.getDefaultUserAgent() : Setting.getUa());
+        headers = headers == null ? new HashMap<>() : new HashMap<>(headers);
+        if (headers.keySet().stream().noneMatch(HttpHeaders.USER_AGENT::equalsIgnoreCase)) {
+            headers.put(HttpHeaders.USER_AGENT, Setting.getUa().isEmpty() ? MediaItemFactory.getDefaultUserAgent() : Setting.getUa());
+        }
         return this;
     }
 

@@ -1104,8 +1104,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
         setRequestedOrientation(PlaybackOrientation.getEnterFullscreenOrientation(player().isPortrait()));
         mBinding.control.title.setVisibility(View.VISIBLE);
-        mBinding.control.size.setText(player().getSizeText());
-        mBinding.control.size.setVisibility(player().getSizeText().isEmpty() ? View.GONE : View.VISIBLE);
+        String sizeText = getSizeText();
+        mBinding.control.size.setText(sizeText);
+        mBinding.control.size.setVisibility(sizeText.isEmpty() ? View.GONE : View.VISIBLE);
         mBinding.control.full.setImageResource(androidx.media3.ui.R.drawable.exo_icon_fullscreen_exit);
         setRotate(player().isPortrait());
         mKeyDown.resetScale();
@@ -1188,8 +1189,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.bottom.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.back.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.top.setVisibility(isLock() ? View.GONE : View.VISIBLE);
-        boolean hasSize = isFullscreen() && !player().getSizeText().isEmpty();
-        mBinding.control.size.setText(player().getSizeText());
+        String sizeText = getSizeText();
+        boolean hasSize = isFullscreen() && !sizeText.isEmpty();
+        mBinding.control.size.setText(sizeText);
         mBinding.control.size.setVisibility(hasSize ? View.VISIBLE : View.GONE);
         mBinding.control.getRoot().setVisibility(View.VISIBLE);
         setR1Callback();
@@ -1385,12 +1387,17 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mPiP.update(this, isPlaying);
     }
 
+    private String getSizeText() {
+        return service() != null && player() != null ? player().getSizeText() : "";
+    }
+
     @Override
     protected void onSizeChanged(VideoSize size) {
         changeHeight();
         checkOrientation();
-        boolean hasSize = isFullscreen() && !player().getSizeText().isEmpty();
-        mBinding.control.size.setText(player().getSizeText());
+        String sizeText = (size == null || (size.width == 0 && size.height == 0)) ? getSizeText() : size.width + " x " + size.height;
+        boolean hasSize = isFullscreen() && !sizeText.isEmpty();
+        mBinding.control.size.setText(sizeText);
         mBinding.control.size.setVisibility(hasSize ? View.VISIBLE : View.GONE);
     }
 
@@ -1425,6 +1432,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void checkOrientation() {
+        if (service() == null || player() == null) return;
         if (isFullscreen() && !isRotate() && player().isPortrait()) {
             setRequestedOrientation(PlaybackOrientation.getPortraitVideoSizeOrientation());
             setRotate(true);
@@ -1435,7 +1443,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void changeHeight() {
-        if (isLand() || isFullscreen() || isInPictureInPictureMode()) return;
+        if (isLand() || isFullscreen() || isInPictureInPictureMode() || service() == null || player() == null) return;
         int videoWidth = player().getVideoWidth();
         int videoHeight = player().getVideoHeight();
         if (videoWidth == 0 || videoHeight == 0) return;

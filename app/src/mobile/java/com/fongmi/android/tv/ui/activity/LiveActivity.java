@@ -509,6 +509,10 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         mBinding.widget.error.setText("");
     }
 
+    private String getSizeText() {
+        return service() != null && player() != null ? player().getSizeText() : "";
+    }
+
     private void showControl() {
         if (service() == null || isInPictureInPictureMode()) return;
         mBinding.control.info.setVisibility(player().isEmpty() ? View.GONE : View.VISIBLE);
@@ -518,8 +522,9 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         mBinding.control.bottom.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.back.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.top.setVisibility(isLock() ? View.GONE : View.VISIBLE);
-        boolean hasSize = !player().getSizeText().isEmpty();
-        mBinding.control.size.setText(player().getSizeText());
+        String sizeText = getSizeText();
+        boolean hasSize = !sizeText.isEmpty();
+        mBinding.control.size.setText(sizeText);
         mBinding.control.size.setVisibility(hasSize ? View.VISIBLE : View.GONE);
         mBinding.control.getRoot().setVisibility(View.VISIBLE);
         setR1Callback();
@@ -528,8 +533,9 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
 
     @Override
     protected void onSizeChanged(VideoSize size) {
-        boolean hasSize = !player().getSizeText().isEmpty();
-        mBinding.control.size.setText(player().getSizeText());
+        String sizeText = (size == null || (size.width == 0 && size.height == 0)) ? getSizeText() : size.width + " x " + size.height;
+        boolean hasSize = !sizeText.isEmpty();
+        mBinding.control.size.setText(sizeText);
         mBinding.control.size.setVisibility(hasSize ? View.VISIBLE : View.GONE);
     }
 

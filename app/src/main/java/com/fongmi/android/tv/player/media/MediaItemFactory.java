@@ -1,6 +1,7 @@
 package com.fongmi.android.tv.player.media;
 
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 
@@ -45,7 +46,22 @@ public final class MediaItemFactory {
     }
 
     public static String getDefaultUserAgent() {
-        return Util.getUserAgent(App.get(), "com.fongmi.android.tv");
+        try {
+            return sanitizeUserAgent(Util.getUserAgent(App.get(), "com.fongmi.android.tv"));
+        } catch (Throwable e) {
+            return "com.fongmi.android.tv/5.6.7 (Linux;Android " + Build.VERSION.RELEASE + ") ExoPlayerLib/2.18.1";
+        }
+    }
+
+    private static String sanitizeUserAgent(String ua) {
+        if (ua == null) return "com.fongmi.android.tv";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < ua.length(); i++) {
+            char c = ua.charAt(i);
+            if ((c > '\u001f' && c < '\u007f') || c == '\t') sb.append(c);
+            else sb.append('_');
+        }
+        return sb.toString();
     }
 
     public static MediaItem from(PlaySpec spec) {
