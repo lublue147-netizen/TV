@@ -1,0 +1,61 @@
+name: Deploy Subscription Source
+
+on:
+  push:
+    paths:
+      - 'subscription/**'
+      - '.github/workflows/deploy-source.yml'
+    branches:
+      - fongmi
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Build Subscription Source
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 subscription/scripts/build_source.py
+
+      - name: Deploy to GitHub Pages Branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist_source
+          publish_branch: gh-pages
+          force_orphan: true
+
+      - name: Generate Summary
+        run: |
+          REPO="${{ github.repository }}"
+          OWNER="${{ github.repository_owner }}"
+          REPO_NAME="${REPO#*/}"
+          PAGES_URL="https://${OWNER}.github.io/${REPO_NAME}/aiwex.json"
+          CDN_URL="https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/aiwex.json"
+          GHPROXY_URL="https://ghproxy.net/https://raw.githubusercontent.com/${REPO}/fongmi/subscription/config/aiwex.json"
+
+          echo "### 🚀 TVBox / FongMi 影视源构建与发布完成！" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "可以直接将以下任一链接复制粘贴至 TVBox / FongMi 客户端：「设置」->「配置地址」" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 线路类型 | 接口订阅地址 |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🚀 **jsDelivr 高速 CDN (推荐)** | \`${CDN_URL}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🌐 **GitHub Pages 官方线路** | \`${PAGES_URL}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| ⚡ **GitHub 镜像加速源** | \`${GHPROXY_URL}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📦 **精简核心源 (Custom)** | \`https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/custom.json\` |" >> $GITHUB_STEP_SUMMARY
