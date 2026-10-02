@@ -10,7 +10,6 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.Util;
 
 import com.fongmi.android.tv.App;
-import com.fongmi.android.tv.BuildConfig;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.Drm;
 import com.fongmi.android.tv.bean.Sub;
@@ -46,7 +45,7 @@ public final class MediaItemFactory {
     }
 
     public static String getDefaultUserAgent() {
-        return Util.getUserAgent(App.get(), BuildConfig.APPLICATION_ID);
+        return Util.getUserAgent(App.get(), "com.fongmi.android.tv");
     }
 
     public static MediaItem from(PlaySpec spec) {

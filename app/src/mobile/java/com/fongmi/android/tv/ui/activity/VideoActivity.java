@@ -1104,6 +1104,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
         setRequestedOrientation(PlaybackOrientation.getEnterFullscreenOrientation(player().isPortrait()));
         mBinding.control.title.setVisibility(View.VISIBLE);
+        mBinding.control.size.setText(player().getSizeText());
+        mBinding.control.size.setVisibility(player().getSizeText().isEmpty() ? View.GONE : View.VISIBLE);
         mBinding.control.full.setImageResource(androidx.media3.ui.R.drawable.exo_icon_fullscreen_exit);
         setRotate(player().isPortrait());
         mKeyDown.resetScale();
@@ -1118,6 +1120,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         setRequestedOrientation(PlaybackOrientation.getExitFullscreenOrientation(isPort()));
         mBinding.episode.postDelayed(() -> mBinding.episode.scrollToPosition(mEpisodeAdapter.getPosition()), 100);
         mBinding.control.title.setVisibility(View.INVISIBLE);
+        mBinding.control.size.setVisibility(View.GONE);
         mBinding.control.full.setImageResource(androidx.media3.ui.R.drawable.exo_icon_fullscreen_enter);
         mBinding.video.setLayoutParams(mFrameParams);
         mKeyDown.resetScale();
@@ -1185,6 +1188,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.bottom.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.back.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.top.setVisibility(isLock() ? View.GONE : View.VISIBLE);
+        boolean hasSize = isFullscreen() && !player().getSizeText().isEmpty();
+        mBinding.control.size.setText(player().getSizeText());
+        mBinding.control.size.setVisibility(hasSize ? View.VISIBLE : View.GONE);
         mBinding.control.getRoot().setVisibility(View.VISIBLE);
         setR1Callback();
     }
@@ -1383,6 +1389,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     protected void onSizeChanged(VideoSize size) {
         changeHeight();
         checkOrientation();
+        boolean hasSize = isFullscreen() && !player().getSizeText().isEmpty();
+        mBinding.control.size.setText(player().getSizeText());
+        mBinding.control.size.setVisibility(hasSize ? View.VISIBLE : View.GONE);
     }
 
     @Override

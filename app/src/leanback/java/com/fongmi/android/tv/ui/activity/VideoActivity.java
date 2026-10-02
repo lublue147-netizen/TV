@@ -1058,6 +1058,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mBinding.widget.center.setVisibility(View.VISIBLE);
         mBinding.widget.duration.setText(player().getDurationTime());
         mBinding.widget.position.setText(player().getPositionTime(0));
+        mBinding.widget.size.setText(player().getSizeText());
     }
 
     private void hideInfo() {
@@ -1067,12 +1068,15 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     private void showControl(View view) {
         mBinding.control.getRoot().setVisibility(View.VISIBLE);
+        mBinding.widget.top.setVisibility(View.VISIBLE);
+        mBinding.widget.size.setText(player().getSizeText());
         view.requestFocus();
         setR1Callback();
     }
 
     private void hideControl() {
         mBinding.control.getRoot().setVisibility(View.GONE);
+        if (!isPaused()) mBinding.widget.top.setVisibility(View.GONE);
         App.removeCallbacks(mR1);
     }
 

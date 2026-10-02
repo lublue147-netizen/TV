@@ -22,13 +22,14 @@
             android:scaleType="center"
             android:src="@drawable/ic_control_back" />
 
-        <FrameLayout
+        <androidx.appcompat.widget.LinearLayoutCompat
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_gravity="center_vertical"
             android:layout_marginStart="4dp"
             android:layout_marginEnd="4dp"
-            android:layout_weight="1">
+            android:layout_weight="1"
+            android:orientation="vertical">
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/title"
@@ -37,10 +38,21 @@
                 android:ellipsize="marquee"
                 android:singleLine="true"
                 android:textColor="@color/white"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 tools:text="CCTV-4K" />
 
-        </FrameLayout>
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/size"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="@color/white_70"
+                android:textSize="12sp"
+                android:visibility="gone"
+                tools:text="1920 x 1080"
+                tools:visibility="visible" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
 
         <androidx.appcompat.widget.LinearLayoutCompat
             android:layout_width="wrap_content"

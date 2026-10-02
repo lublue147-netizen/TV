@@ -16,6 +16,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
+import androidx.media3.common.VideoSize;
 import androidx.media3.ui.PlayerSeekView;
 import androidx.media3.ui.PlayerView;
 import androidx.recyclerview.widget.RecyclerView;
@@ -517,9 +518,19 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         mBinding.control.bottom.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.back.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.top.setVisibility(isLock() ? View.GONE : View.VISIBLE);
+        boolean hasSize = !player().getSizeText().isEmpty();
+        mBinding.control.size.setText(player().getSizeText());
+        mBinding.control.size.setVisibility(hasSize ? View.VISIBLE : View.GONE);
         mBinding.control.getRoot().setVisibility(View.VISIBLE);
         setR1Callback();
         hideInfo();
+    }
+
+    @Override
+    protected void onSizeChanged(VideoSize size) {
+        boolean hasSize = !player().getSizeText().isEmpty();
+        mBinding.control.size.setText(player().getSizeText());
+        mBinding.control.size.setVisibility(hasSize ? View.VISIBLE : View.GONE);
     }
 
     private void hideControl() {
