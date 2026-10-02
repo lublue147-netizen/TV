@@ -92,6 +92,8 @@ public class Config {
 
     public static void initPresets() {
         long now = System.currentTimeMillis();
+        AppDatabase.get().getConfigDao().delete("https://cdn.jsdelivr.net/gh/lublue147-netizen/TV@gh-pages/aiwex.json");
+
         List<Config> presets = Preset.getVodPresets();
         for (int i = presets.size() - 1; i >= 0; i--) {
             Config preset = presets.get(i);
@@ -99,12 +101,16 @@ public class Config {
             if (existing == null) {
                 preset.setTime(now + (presets.size() - i) * 1000L);
                 preset.save();
+            } else {
+                existing.setName(preset.getName());
+                existing.update();
             }
         }
         Config active = AppDatabase.get().getConfigDao().findOne(0);
-        if (active == null || active.isEmpty()) {
-            Config fullClean = AppDatabase.get().getConfigDao().find(Preset.FULL_CLEAN, 0);
-            if (fullClean != null) fullClean.update();
+        if (active == null || active.isEmpty() || Preset.FULL_CLEAN.equals(active.getUrl())) {
+            Config defaultPreset = AppDatabase.get().getConfigDao().find(Preset.ACCELERATED, 0);
+            if (defaultPreset == null) defaultPreset = AppDatabase.get().getConfigDao().find(Preset.AIWEX, 0);
+            if (defaultPreset != null) defaultPreset.update();
         }
     }
 
