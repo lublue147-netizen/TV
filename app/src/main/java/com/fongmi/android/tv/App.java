@@ -84,10 +84,33 @@ public class App extends Application implements Application.ActivityLifecycleCal
     public void onCreate() {
         super.onCreate();
         installExceptionHandler();
+        installLooperProtector();
         FirebaseUtil.init(this);
         Init.set(com.fongmi.android.tv.api.loader.SpiderContext.get());
         Notify.createChannel();
         registerActivityLifecycleCallbacks(this);
+    }
+
+    private void installLooperProtector() {
+        handler.post(() -> {
+            while (true) {
+                try {
+                    Looper.loop();
+                } catch (Throwable t) {
+                    writeCrashLog(Looper.getMainLooper().getThread(), t);
+                    recordCrashlytics(Looper.getMainLooper().getThread(), t);
+                    if (isSpiderOrLoaderException(t)) {
+                        android.util.Log.e("TV_CRASH", "Prevented spider crash on main looper", t);
+                        continue;
+                    }
+                    Thread.UncaughtExceptionHandler defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
+                    if (defaultHandler != null) {
+                        defaultHandler.uncaughtException(Looper.getMainLooper().getThread(), t);
+                    }
+                    break;
+                }
+            }
+        });
     }
 
     private void installExceptionHandler() {
@@ -154,13 +177,13 @@ public class App extends Application implements Application.ActivityLifecycleCal
 
     private static boolean isSpiderOrLoaderException(Throwable t) {
         while (t != null) {
-            String msg = String.valueOf(t.getMessage());
-            if (msg.contains("catvod") || msg.contains("Spider") || msg.contains("DexClassLoader") || msg.contains("wex")) {
+            String msg = String.valueOf(t.getMessage()).toLowerCase();
+            if (msg.contains("catvod") || msg.contains("spider") || msg.contains("dexclassloader") || msg.contains("wex") || msg.contains("not owned by uid") || msg.contains("enqueuetoast")) {
                 return true;
             }
             for (StackTraceElement element : t.getStackTrace()) {
-                String cls = element.getClassName();
-                if (cls.contains("catvod") || cls.contains("Spider") || cls.contains("JarLoader") || cls.contains("BaseLoader") || cls.contains("SiteApi") || cls.contains("SafeSpider")) {
+                String cls = element.getClassName().toLowerCase();
+                if (cls.contains("catvod") || cls.contains("spider") || cls.contains("jarloader") || cls.contains("baseloader") || cls.contains("siteapi") || cls.contains("safespider")) {
                     return true;
                 }
             }
