@@ -689,7 +689,8 @@ public class PlayerManager implements ParseCallback {
                 case DECODE -> handleDecodeError(e);
                 case RECOVERED -> notifyDanmakuSourceChanged();
                 case FATAL -> {
-                    FirebaseUtil.setCustomKey("playback_error_code", e.errorCodeName);
+                    FirebaseUtil.setCustomKey("playback_error_code", e.errorCode);
+                    FirebaseUtil.setCustomKey("playback_error_name", e.getErrorCodeName());
                     FirebaseUtil.recordException("playback_fatal", e);
                     callback.onError(engine.getErrorMessage(e));
                 }
