@@ -9,6 +9,7 @@ import androidx.viewbinding.ViewBinding;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.databinding.ActivityCrashBinding;
 import com.fongmi.android.tv.ui.base.BaseActivity;
+import com.fongmi.android.tv.utils.FirebaseUtil;
 import com.github.catvod.utils.Prefers;
 
 import java.util.Objects;
@@ -32,6 +33,7 @@ public class CrashActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        FirebaseUtil.log("CrashActivity shown: " + CustomActivityOnCrash.getActivityLogFromIntent(getIntent()));
         setCrash();
     }
 

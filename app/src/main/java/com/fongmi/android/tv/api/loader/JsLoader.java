@@ -1,6 +1,7 @@
 package com.fongmi.android.tv.api.loader;
 
 import com.fongmi.android.tv.App;
+import com.fongmi.android.tv.utils.FirebaseUtil;
 import com.fongmi.quickjs.crawler.Loader;
 import com.fongmi.quickjs.utils.Module;
 import com.github.catvod.crawler.Spider;
@@ -40,6 +41,8 @@ public class JsLoader {
                 return spider;
             } catch (Throwable e) {
                 e.printStackTrace();
+                FirebaseUtil.setCustomKey("spider_js_api", api);
+                FirebaseUtil.recordException("js_spider_init", e);
                 return new SpiderNull();
             }
         });

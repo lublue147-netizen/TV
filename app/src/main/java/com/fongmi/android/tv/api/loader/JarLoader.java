@@ -12,6 +12,7 @@ import com.github.catvod.crawler.Spider;
 import com.github.catvod.crawler.SpiderNull;
 import com.github.catvod.net.OkHttp;
 import com.github.catvod.utils.Crypto;
+import com.fongmi.android.tv.utils.FirebaseUtil;
 import com.github.catvod.utils.Path;
 
 import org.json.JSONObject;
@@ -254,6 +255,9 @@ public class JarLoader {
                 return spider;
             } catch (Throwable e) {
                 e.printStackTrace();
+                FirebaseUtil.setCustomKey("spider_api", api);
+                FirebaseUtil.setCustomKey("spider_jar", jar);
+                FirebaseUtil.recordException("jar_spider_load", e);
                 return new SpiderNull();
             }
         });

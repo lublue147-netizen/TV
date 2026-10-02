@@ -2,6 +2,7 @@ package com.fongmi.android.tv.api.loader;
 
 import android.content.Context;
 
+import com.fongmi.android.tv.utils.FirebaseUtil;
 import com.github.catvod.crawler.Spider;
 import com.github.catvod.crawler.SpiderNull;
 
@@ -24,6 +25,7 @@ public class SafeSpider extends Spider {
             delegate.init(context);
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "init", t);
         }
     }
 
@@ -33,6 +35,7 @@ public class SafeSpider extends Spider {
             delegate.init(context, extend);
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "init_extend", t);
         }
     }
 
@@ -42,6 +45,7 @@ public class SafeSpider extends Spider {
             return delegate.homeContent(filter);
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "homeContent", t);
             return "";
         }
     }
@@ -52,6 +56,7 @@ public class SafeSpider extends Spider {
             return delegate.homeVideoContent();
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "homeVideoContent", t);
             return "";
         }
     }
@@ -62,6 +67,7 @@ public class SafeSpider extends Spider {
             return delegate.categoryContent(tid, pg, filter, extend);
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "categoryContent", t);
             return "";
         }
     }
@@ -72,6 +78,7 @@ public class SafeSpider extends Spider {
             return delegate.detailContent(ids);
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "detailContent", t);
             return "";
         }
     }
@@ -82,6 +89,7 @@ public class SafeSpider extends Spider {
             return delegate.searchContent(key, quick);
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "searchContent", t);
             return "";
         }
     }
@@ -92,6 +100,7 @@ public class SafeSpider extends Spider {
             return delegate.searchContent(key, quick, pg);
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "searchContent_pg", t);
             return "";
         }
     }
@@ -102,6 +111,7 @@ public class SafeSpider extends Spider {
             return delegate.playerContent(flag, id, vipFlags);
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "playerContent", t);
             return "";
         }
     }
@@ -112,6 +122,7 @@ public class SafeSpider extends Spider {
             return delegate.liveContent(url);
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "liveContent", t);
             return "";
         }
     }
@@ -122,6 +133,7 @@ public class SafeSpider extends Spider {
             return delegate.manualVideoCheck();
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "manualVideoCheck", t);
             return false;
         }
     }
@@ -132,6 +144,7 @@ public class SafeSpider extends Spider {
             return delegate.isVideoFormat(url);
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "isVideoFormat", t);
             return false;
         }
     }
@@ -142,6 +155,7 @@ public class SafeSpider extends Spider {
             return delegate.proxy(params);
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "proxy", t);
             return null;
         }
     }
@@ -152,6 +166,7 @@ public class SafeSpider extends Spider {
             return delegate.action(action);
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "action", t);
             return null;
         }
     }
@@ -162,6 +177,7 @@ public class SafeSpider extends Spider {
             delegate.destroy();
         } catch (Throwable t) {
             t.printStackTrace();
+            FirebaseUtil.recordSpiderError(siteKey, "destroy", t);
         }
     }
 }

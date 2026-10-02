@@ -26,6 +26,9 @@ androidautosize = "1.2.1"
 brotli = "0.1.2"
 commonsCompress = "1.28.0"
 customactivityoncrash = "2.4.0"
+firebaseBom = "33.7.0"
+firebaseCrashlyticsPlugin = "3.0.3"
+googleServices = "4.4.2"
 flexbox = "3.0.0"
 glide = "5.0.9"
 greenrobot = "3.3.1"
@@ -77,6 +80,10 @@ commons-compress = { group = "org.apache.commons", name = "commons-compress", ve
 customactivityoncrash = { group = "cat.ereza", name = "customactivityoncrash", version.ref = "customactivityoncrash" }
 eventbus = { group = "org.greenrobot", name = "eventbus", version.ref = "greenrobot" }
 eventbus-annotation-processor = { group = "org.greenrobot", name = "eventbus-annotation-processor", version.ref = "greenrobot" }
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
+firebase-crashlytics-ndk = { group = "com.google.firebase", name = "firebase-crashlytics-ndk" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
 flexbox = { group = "com.google.android.flexbox", name = "flexbox", version.ref = "flexbox" }
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 glide-annotations = { group = "com.github.bumptech.glide", name = "annotations", version.ref = "glide" }
@@ -115,6 +122,8 @@ zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxingCo
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 chaquo-python = { id = "com.chaquo.python", version.ref = "python" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 
 [bundles]
 glide = ["glide", "glide-annotations", "glide-avif-integration", "glide-okhttp3-integration"]

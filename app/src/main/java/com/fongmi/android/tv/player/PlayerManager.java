@@ -22,6 +22,7 @@ import androidx.media3.ui.danmaku.DanmakuConfig;
 
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.Constant;
+import com.fongmi.android.tv.utils.FirebaseUtil;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.Danmaku;
 import com.fongmi.android.tv.bean.Result;
@@ -687,7 +688,11 @@ public class PlayerManager implements ParseCallback {
             switch (action) {
                 case DECODE -> handleDecodeError(e);
                 case RECOVERED -> notifyDanmakuSourceChanged();
-                case FATAL -> callback.onError(engine.getErrorMessage(e));
+                case FATAL -> {
+                    FirebaseUtil.setCustomKey("playback_error_code", e.errorCodeName);
+                    FirebaseUtil.recordException("playback_fatal", e);
+                    callback.onError(engine.getErrorMessage(e));
+                }
             }
         }
     };

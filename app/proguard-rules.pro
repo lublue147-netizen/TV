@@ -80,3 +80,7 @@
 -keep class com.google.zxing.qrcode.QRCodeReader { *; }
 -keep class com.google.zxing.qrcode.QRCodeWriter { *; }
 -keep class com.google.zxing.qrcode.decoder.ErrorCorrectionLevel { *; }
+
+# Firebase & Crashlytics
+-keepattributes SourceFile,LineNumberTable
+-keepattributes *Annotation*

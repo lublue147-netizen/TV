@@ -12,6 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.os.HandlerCompat;
 
+import com.fongmi.android.tv.utils.FirebaseUtil;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.hook.Hook;
 import com.github.catvod.Init;
@@ -81,6 +82,7 @@ public class App extends Application implements Application.ActivityLifecycleCal
     @Override
     public void onCreate() {
         super.onCreate();
+        FirebaseUtil.init(this);
         installExceptionHandler();
         Init.set(com.fongmi.android.tv.api.loader.SpiderContext.get());
         Notify.createChannel();
@@ -91,6 +93,7 @@ public class App extends Application implements Application.ActivityLifecycleCal
         Thread.UncaughtExceptionHandler defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, ex) -> {
             writeCrashLog(thread, ex);
+            recordCrashlytics(thread, ex);
             if (isSpiderOrLoaderException(ex)) {
                 ex.printStackTrace();
                 return;
@@ -99,6 +102,20 @@ public class App extends Application implements Application.ActivityLifecycleCal
                 defaultHandler.uncaughtException(thread, ex);
             }
         });
+    }
+
+    private static void recordCrashlytics(Thread thread, Throwable ex) {
+        try {
+            FirebaseUtil.setCustomKey("crash_thread", thread != null ? thread.getName() : "unknown");
+            if (isSpiderOrLoaderException(ex)) {
+                FirebaseUtil.setCustomKey("crash_type", "spider_loader");
+                FirebaseUtil.recordException(ex);
+            } else {
+                FirebaseUtil.setCustomKey("crash_type", "fatal");
+                FirebaseUtil.recordException(ex);
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     private static void writeCrashLog(Thread thread, Throwable ex) {
@@ -146,7 +163,10 @@ public class App extends Application implements Application.ActivityLifecycleCal
 
     @Override
     public void onActivityResumed(@NonNull Activity activity) {
-        if (activity != activity()) this.activity = activity;
+        if (activity != activity()) {
+            this.activity = activity;
+            FirebaseUtil.trackScreen(activity.getClass().getSimpleName());
+        }
     }
 
     @Override

@@ -3,6 +3,8 @@ import com.fongmi.gradle.AbiApkPackaging
 
 plugins {
     alias libs.plugins.android.application
+    alias libs.plugins.google.services
+    alias libs.plugins.firebase.crashlytics
 }
 
 def localProps = new Properties()
@@ -22,8 +24,8 @@ android {
         applicationId "com.lublue.android.tv"
         minSdk libs.versions.minSdk.get().toInteger()
         targetSdk libs.versions.targetSdk.get().toInteger()
-        versionCode 571
-        versionName "5.7.1"
+        versionCode 572
+        versionName "5.7.2"
         javaCompileOptions {
             annotationProcessorOptions {
                 arguments = ["room.schemaLocation": "$projectDir/schemas".toString(), "eventBusIndex": "com.fongmi.android.tv.event.EventIndex"]
@@ -150,6 +152,10 @@ dependencies {
     implementation libs.bundles.glide
     implementation libs.bundles.jupnp
     implementation libs.customactivityoncrash
+    implementation platform(libs.firebase.bom)
+    implementation libs.firebase.crashlytics
+    implementation libs.firebase.crashlytics.ndk
+    implementation libs.firebase.analytics
     implementation libs.eventbus
     implementation libs.flexbox
     implementation libs.rtmp.client
