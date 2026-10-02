@@ -19,9 +19,7 @@ import org.json.JSONObject;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,8 +28,6 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 
 import dalvik.system.DexClassLoader;
 
@@ -69,11 +65,9 @@ public class JarLoader {
     private void load(String key, File file) {
         if (Thread.interrupted()) return;
         if (!Path.exists(file) || !file.setReadOnly()) return;
-        boolean guarded = isGuardedJar(file);
-        if (guarded) weaponized.put(key, Boolean.TRUE);
         String cachePath = Path.jar().getAbsolutePath();
         DexClassLoader loader = new DexClassLoader(file.getAbsolutePath(), cachePath, cachePath, App.get().getClassLoader());
-        if (!guarded && isWeaponized(loader)) {
+        if (isWeaponized(loader)) {
             weaponized.put(key, Boolean.TRUE);
         }
         invokeInit(key, loader);
@@ -83,45 +77,19 @@ public class JarLoader {
         loaders.put(key, loader);
     }
 
-    private boolean isGuardedJar(File file) {
-        try (ZipFile zip = new ZipFile(file)) {
-            Enumeration<? extends ZipEntry> entries = zip.entries();
-            while (entries.hasMoreElements()) {
-                String name = entries.nextElement().getName().toLowerCase();
-                if (name.endsWith(".so") || name.endsWith(".guard") || name.contains("shinidie") || name.contains("dexnative") || name.contains("wexguard")) {
-                    return true;
-                }
-            }
-        } catch (Throwable ignored) {
-        }
-        return false;
-    }
-
     private boolean isWeaponized(DexClassLoader loader) {
-        try {
-            loader.loadClass("com.github.catvod.spider.DexNative");
-            return true;
-        } catch (Throwable ignored) {
-        }
-        try {
-            loader.loadClass("com.github.catvod.spider.BaseSpiderGuard");
-            return true;
-        } catch (Throwable ignored) {
-        }
         try {
             Class<?> clz = loader.loadClass("com.github.catvod.spider.Init");
             for (Method m : clz.getDeclaredMethods()) {
-                if (Modifier.isNative(m.getModifiers())) return true;
                 String name = m.getName();
-                if (name.contains("GoProxy") || name.contains("FloatBall") || name.contains("ActivityStart") || name.contains("killProcess") || name.contains("getLoader") || name.contains("proxyInvoke")) {
+                if (name.contains("GoProxy") || name.contains("FloatBall") || name.contains("ActivityStart") || name.contains("killProcess")) {
                     return true;
                 }
             }
             for (Class<?> inner : clz.getDeclaredClasses()) {
                 for (Method m : inner.getDeclaredMethods()) {
-                    if (Modifier.isNative(m.getModifiers())) return true;
                     String name = m.getName();
-                    if (name.contains("killProcess") || name.contains("GoProxy") || name.contains("getLoader")) {
+                    if (name.contains("killProcess") || name.contains("GoProxy") || name.contains("FloatBall") || name.contains("ActivityStart")) {
                         return true;
                     }
                 }
@@ -134,8 +102,10 @@ public class JarLoader {
     private void invokeInit(String key, DexClassLoader loader) {
         try {
             Class<?> clz = loader.loadClass("com.github.catvod.spider.Init");
-            neutralizeWeaponizedInit(clz, loader);
-            if (Boolean.TRUE.equals(weaponized.get(key))) return;
+            if (Boolean.TRUE.equals(weaponized.get(key))) {
+                neutralizeWeaponizedInit(clz, loader);
+                return;
+            }
             Method method = clz.getMethod("init", Context.class);
             method.invoke(clz, SpiderContext.get());
         } catch (Throwable e) {
@@ -242,18 +212,10 @@ public class JarLoader {
         return spiders.computeIfAbsent(spKey, k -> {
             try {
                 parseJar(jaKey, jar);
-                if (Boolean.TRUE.equals(weaponized.get(jaKey))) {
-                    return new SpiderNull();
-                }
-                if (api.endsWith("Guard") || api.contains("Guard")) {
-                    return new SpiderNull();
-                }
                 DexClassLoader loader = loaders.get(jaKey);
                 if (loader == null) return new SpiderNull();
-                Class<?> clz = loader.loadClass("com.github.catvod.spider." + api.split("csp_")[1]);
-                if (clz.getName().endsWith("Guard") || (clz.getSuperclass() != null && clz.getSuperclass().getName().contains("Guard"))) {
-                    return new SpiderNull();
-                }
+                String clsName = api.startsWith("csp_") ? api.substring(4) : api;
+                Class<?> clz = loader.loadClass("com.github.catvod.spider." + clsName);
                 Spider spider = (Spider) clz.newInstance();
                 spider.siteKey = key;
                 spider.init(SpiderContext.get(), ext);
