@@ -81,6 +81,7 @@ public class App extends Application implements Application.ActivityLifecycleCal
     @Override
     public void onCreate() {
         super.onCreate();
+        Init.set(com.fongmi.android.tv.api.loader.SpiderContext.get());
         Notify.createChannel();
         registerActivityLifecycleCallbacks(this);
     }

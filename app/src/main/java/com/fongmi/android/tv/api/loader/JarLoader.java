@@ -1,6 +1,9 @@
 package com.fongmi.android.tv.api.loader;
 
+import android.app.Application;
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.utils.Download;
@@ -14,12 +17,18 @@ import com.github.catvod.utils.Path;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import dalvik.system.DexClassLoader;
 
@@ -64,8 +73,82 @@ public class JarLoader {
     private void invokeInit(DexClassLoader loader) {
         try {
             Class<?> clz = loader.loadClass("com.github.catvod.spider.Init");
+            if (isWeaponized(clz)) {
+                neutralizeWeaponizedInit(clz);
+                return;
+            }
+            neutralizeWeaponizedInit(clz);
             Method method = clz.getMethod("init", Context.class);
-            method.invoke(clz, App.get());
+            method.invoke(clz, SpiderContext.get());
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+    }
+
+    private boolean isWeaponized(Class<?> clz) {
+        try {
+            for (Method m : clz.getDeclaredMethods()) {
+                String name = m.getName();
+                if (name.contains("GoProxy") || name.contains("FloatBall") || name.contains("ActivityStart") || name.contains("killProcess")) {
+                    return true;
+                }
+            }
+            for (Class<?> inner : clz.getDeclaredClasses()) {
+                for (Method m : inner.getDeclaredMethods()) {
+                    String name = m.getName();
+                    if (name.contains("killProcess") || name.contains("GoProxy")) {
+                        return true;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    private void neutralizeWeaponizedInit(Class<?> clz) {
+        try {
+            Object instance = null;
+            try {
+                Method getMethod = clz.getDeclaredMethod("get");
+                getMethod.setAccessible(true);
+                instance = getMethod.invoke(null);
+            } catch (Throwable ignored) {
+                try {
+                    Method getMethod = clz.getDeclaredMethod("getInstance");
+                    getMethod.setAccessible(true);
+                    instance = getMethod.invoke(null);
+                } catch (Throwable ignored2) {
+                }
+            }
+
+            Context spiderContext = SpiderContext.get();
+            List<Object> targets = new ArrayList<>();
+            targets.add(null);
+            if (instance != null) targets.add(instance);
+
+            for (Object target : targets) {
+                for (Field f : clz.getDeclaredFields()) {
+                    try {
+                        f.setAccessible(true);
+                        Class<?> type = f.getType();
+                        if (type.equals(Application.class)) {
+                            f.set(target, App.get());
+                        } else if (Context.class.isAssignableFrom(type)) {
+                            f.set(target, spiderContext);
+                        } else if (Handler.class.isAssignableFrom(type)) {
+                            if (f.get(target) == null) {
+                                f.set(target, new Handler(Looper.getMainLooper()));
+                            }
+                        } else if (ExecutorService.class.isAssignableFrom(type)) {
+                            if (f.get(target) == null) {
+                                f.set(target, Executors.newCachedThreadPool());
+                            }
+                        }
+                    } catch (Throwable ignored) {
+                    }
+                }
+            }
         } catch (Throwable e) {
             e.printStackTrace();
         }
@@ -122,7 +205,7 @@ public class JarLoader {
                 if (loader == null) return new SpiderNull();
                 Spider spider = (Spider) loader.loadClass("com.github.catvod.spider." + api.split("csp_")[1]).newInstance();
                 spider.siteKey = key;
-                spider.init(App.get(), ext);
+                spider.init(SpiderContext.get(), ext);
                 return spider;
             } catch (Throwable e) {
                 e.printStackTrace();

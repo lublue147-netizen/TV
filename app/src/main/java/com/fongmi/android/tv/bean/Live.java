@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 @Entity
@@ -381,5 +382,10 @@ public class Live {
         if (this == obj) return true;
         if (!(obj instanceof Live it)) return false;
         return getName().equals(it.getName());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getName());
     }
 }

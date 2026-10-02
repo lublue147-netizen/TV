@@ -36,7 +36,7 @@ public class JsLoader {
             try {
                 Spider spider = loader.spider(api, BaseLoader.get().dex(jar));
                 spider.siteKey = key;
-                spider.init(App.get(), ext);
+                spider.init(SpiderContext.get(), ext);
                 return spider;
             } catch (Throwable e) {
                 e.printStackTrace();

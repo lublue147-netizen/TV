@@ -34,7 +34,7 @@ public class PyLoader {
             try {
                 Spider spider = loader.spider(api);
                 spider.siteKey = key;
-                spider.init(App.get(), ext);
+                spider.init(SpiderContext.get(), ext);
                 return spider;
             } catch (Throwable e) {
                 e.printStackTrace();
