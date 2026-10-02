@@ -47,13 +47,14 @@ def build():
     if spider_src.exists():
         spider_md5 = compute_md5(spider_src)
         shutil.copy2(spider_src, DIST_DIR / "spider.jar")
-        print(f"[+] Spider JAR packaged: dist/spider.jar (MD5: {spider_md5})")
+        shutil.copy2(spider_src, DIST_DIR / "spider.txt")
+        print(f"[+] Spider JAR packaged: dist/spider.jar & dist/spider.txt (MD5: {spider_md5})")
     else:
         print("[!] Warning: custom_spider.jar not found, using upstream MD5")
         spider_md5 = "fc8f993c9297d38139363cd0e3db9853"
 
-    # Self-hosted spider URL priority: jsDelivr CDN > GitHub Pages > Raw
-    spider_url = f"{cdn_base}/spider.jar;md5;{spider_md5}"
+    # Self-hosted spider URL: jsDelivr CDN serves .txt files with 100% reliability
+    spider_url = f"{cdn_base}/spider.txt;md5;{spider_md5}"
 
     # 2. Copy Live Streams
     live_src = LIVE_DIR / "iptv.m3u"
@@ -96,7 +97,17 @@ def build():
 
     print(f"[+] aiwex.json & index.json generated with {len(aiwex_data.get('sites', []))} sites")
 
-    # 4. Generate Web Index Landing Page for easy subscription import
+    # 4. Process custom.json if present
+    custom_src = CONFIG_DIR / "custom.json"
+    if custom_src.exists():
+        with open(custom_src, "r", encoding="utf-8") as f:
+            custom_data = json.load(f)
+        custom_data["spider"] = spider_url
+        with open(DIST_DIR / "custom.json", "w", encoding="utf-8") as f:
+            json.dump(custom_data, f, ensure_ascii=False, indent=2)
+        print(f"[+] custom.json generated with {len(custom_data.get('sites', []))} sites")
+
+    # 5. Generate Web Index Landing Page for easy subscription import
     html_content = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
