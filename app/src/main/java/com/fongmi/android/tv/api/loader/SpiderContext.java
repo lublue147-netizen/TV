@@ -2,7 +2,6 @@ package com.fongmi.android.tv.api.loader;
 
 import android.app.Application;
 import android.content.Context;
-import android.os.Build;
 
 import com.fongmi.android.tv.App;
 
@@ -50,11 +49,6 @@ public class SpiderContext extends Application {
 
     @Override
     public String getOpPackageName() {
-        return getRealPackageName();
-    }
-
-    @Override
-    public String getBasePackageName() {
         return getRealPackageName();
     }
 
