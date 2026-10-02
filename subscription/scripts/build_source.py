@@ -16,7 +16,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 CONFIG_DIR = ROOT_DIR / "config"
 SPIDER_DIR = ROOT_DIR / "spider"
 LIVE_DIR = ROOT_DIR / "live"
-DIST_DIR = ROOT_DIR.parent / "dist_source"
+GOPROXY_BIN = ROOT_DIR / "goproxy" / "bin"
+DIST_DIR = ROOT_DIR / "dist_source"
 
 def compute_md5(file_path: Path) -> str:
     hash_md5 = hashlib.md5()
@@ -26,11 +27,11 @@ def compute_md5(file_path: Path) -> str:
     return hash_md5.hexdigest()
 
 def build():
-    repo = os.environ.get("GITHUB_REPOSITORY", "lublue147-netizen/TV")
-    owner, repo_name = repo.split("/") if "/" in repo else ("lublue147-netizen", "TV")
+    repo = os.environ.get("GITHUB_REPOSITORY", "lublue147-netizen/subscription")
+    owner, repo_name = repo.split("/") if "/" in repo else ("lublue147-netizen", "subscription")
     pages_base = f"https://{owner}.github.io/{repo_name}"
     cdn_base = f"https://cdn.jsdelivr.net/gh/{repo}@gh-pages"
-    raw_base = f"https://raw.githubusercontent.com/{repo}/fongmi/subscription"
+    raw_base = f"https://raw.githubusercontent.com/{repo}/main"
 
     print(f"[*] Building subscription sources for repo: {repo}")
     print(f"[*] GitHub Pages Base: {pages_base}")
@@ -40,6 +41,7 @@ def build():
         shutil.rmtree(DIST_DIR)
     DIST_DIR.mkdir(parents=True, exist_ok=True)
     (DIST_DIR / "live").mkdir(parents=True, exist_ok=True)
+    (DIST_DIR / "bin").mkdir(parents=True, exist_ok=True)
 
     # 1. Copy Spider Jar & calculate MD5
     spider_src = SPIDER_DIR / "custom_spider.jar"
@@ -50,19 +52,20 @@ def build():
         shutil.copy2(spider_src, DIST_DIR / "spider.txt")
         print(f"[+] Spider JAR packaged: dist/spider.jar & dist/spider.txt (MD5: {spider_md5})")
     else:
-        print("[!] Warning: custom_spider.jar not found, using upstream MD5")
+        print("[!] Warning: custom_spider.jar not found, using fallback MD5")
         spider_md5 = "fc8f993c9297d38139363cd0e3db9853"
 
-    # Self-hosted spider URL: jsDelivr CDN serves .txt files with 100% reliability
     spider_url = f"{cdn_base}/spider.txt;md5;{spider_md5}"
 
     # 1.2 Copy Open Source Spider Jar if compiled
     spider_open_src = SPIDER_DIR / "spider_open.jar"
+    open_md5 = ""
     if spider_open_src.exists():
         open_md5 = compute_md5(spider_open_src)
         shutil.copy2(spider_open_src, DIST_DIR / "spider_open.jar")
         shutil.copy2(spider_open_src, DIST_DIR / "spider_open.txt")
         print(f"[+] Open Spider JAR packaged: dist/spider_open.jar & dist/spider_open.txt (MD5: {open_md5})")
+    spider_open_url = f"{cdn_base}/spider_open.txt;md5;{open_md5}" if open_md5 else spider_url
 
     # 2. Copy Live Streams
     live_src = LIVE_DIR / "iptv.m3u"
@@ -70,42 +73,41 @@ def build():
         shutil.copy2(live_src, DIST_DIR / "live" / "iptv.m3u")
         print("[+] Live IPTV packaged: dist/live/iptv.m3u")
 
-    # 3. Process aiwex.json
+    # 3. Copy GoProxy binaries & SO if present
+    if GOPROXY_BIN.exists():
+        for item in GOPROXY_BIN.glob("*"):
+            if item.is_file():
+                shutil.copy2(item, DIST_DIR / "bin" / item.name)
+            elif item.is_dir():
+                shutil.copytree(item, DIST_DIR / "bin" / item.name, dirs_exist_ok=True)
+        print(f"[+] GoProxy binaries copied to dist/bin/")
+
+    # 4. Process aiwex.json
     aiwex_src = CONFIG_DIR / "aiwex.json"
-    if not aiwex_src.exists():
-        raise FileNotFoundError(f"Missing {aiwex_src}")
+    if aiwex_src.exists():
+        with open(aiwex_src, "r", encoding="utf-8") as f:
+            aiwex_data = json.load(f)
 
-    with open(aiwex_src, "r", encoding="utf-8") as f:
-        aiwex_data = json.load(f)
+        aiwex_data["spider"] = spider_url
+        if live_src.exists():
+            self_live = {
+                "name": "本地自建高清直播",
+                "type": 0,
+                "url": f"{cdn_base}/live/iptv.m3u",
+                "playerType": 2
+            }
+            if "lives" in aiwex_data and isinstance(aiwex_data["lives"], list):
+                aiwex_data["lives"].insert(0, self_live)
 
-    # Replace spider with self-hosted URL
-    aiwex_data["spider"] = spider_url
+        with open(DIST_DIR / "aiwex.json", "w", encoding="utf-8") as f:
+            json.dump(aiwex_data, f, ensure_ascii=False, indent=2)
+        with open(DIST_DIR / "index.json", "w", encoding="utf-8") as f:
+            json.dump(aiwex_data, f, ensure_ascii=False, indent=2)
+        with open(DIST_DIR / "aiwex.min.json", "w", encoding="utf-8") as f:
+            json.dump(aiwex_data, f, ensure_ascii=False, separators=(',', ':'))
+        print(f"[+] aiwex.json & index.json generated ({len(aiwex_data.get('sites', []))} sites)")
 
-    # Add self-hosted live entry if desired
-    if live_src.exists():
-        self_live = {
-            "name": "本地自建高清直播",
-            "type": 0,
-            "url": f"{cdn_base}/live/iptv.m3u",
-            "playerType": 2
-        }
-        if "lives" in aiwex_data and isinstance(aiwex_data["lives"], list):
-            # Insert at beginning
-            aiwex_data["lives"].insert(0, self_live)
-
-    # Write human-readable and minified versions
-    with open(DIST_DIR / "aiwex.json", "w", encoding="utf-8") as f:
-        json.dump(aiwex_data, f, ensure_ascii=False, indent=2)
-
-    with open(DIST_DIR / "index.json", "w", encoding="utf-8") as f:
-        json.dump(aiwex_data, f, ensure_ascii=False, indent=2)
-
-    with open(DIST_DIR / "aiwex.min.json", "w", encoding="utf-8") as f:
-        json.dump(aiwex_data, f, ensure_ascii=False, separators=(',', ':'))
-
-    print(f"[+] aiwex.json & index.json generated with {len(aiwex_data.get('sites', []))} sites")
-
-    # 4. Process custom.json if present
+    # 5. Process custom.json
     custom_src = CONFIG_DIR / "custom.json"
     if custom_src.exists():
         with open(custom_src, "r", encoding="utf-8") as f:
@@ -113,20 +115,34 @@ def build():
         custom_data["spider"] = spider_url
         with open(DIST_DIR / "custom.json", "w", encoding="utf-8") as f:
             json.dump(custom_data, f, ensure_ascii=False, indent=2)
-        print(f"[+] custom.json generated with {len(custom_data.get('sites', []))} sites")
+        print(f"[+] custom.json generated ({len(custom_data.get('sites', []))} sites)")
 
-    # 5. Generate Web Index Landing Page for easy subscription import
+    # 6. Process accelerated.json (GoProxy Netdisk Optimized)
+    acc_src = CONFIG_DIR / "accelerated.json"
+    if acc_src.exists():
+        with open(acc_src, "r", encoding="utf-8") as f:
+            acc_data = json.load(f)
+        acc_data["spider"] = spider_open_url
+        if live_src.exists() and "lives" in acc_data and isinstance(acc_data["lives"], list):
+            for l in acc_data["lives"]:
+                if l.get("url", "").startswith("./"):
+                    l["url"] = f"{cdn_base}/{l['url'].lstrip('./')}"
+        with open(DIST_DIR / "accelerated.json", "w", encoding="utf-8") as f:
+            json.dump(acc_data, f, ensure_ascii=False, indent=2)
+        print(f"[+] accelerated.json generated ({len(acc_data.get('sites', []))} sites)")
+
+    # 7. Generate Landing Page
     html_content = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的影视订阅源 (FongMi TV / TVBox)</title>
+    <title>TVBox / FongMi 影视源与网盘播放加速发布中心</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {{
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            background: linear-gradient(135deg, #0b0f19 0%, #1e293b 100%);
             color: #f8fafc;
             min-height: 100vh;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -137,11 +153,11 @@ def build():
             text-align: center;
         }}
         .card-custom {{
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
             margin-bottom: 24px;
         }}
         .code-box {{
@@ -183,49 +199,94 @@ def build():
 <body>
     <div class="container">
         <div class="hero">
-            <h1 class="display-5 fw-bold mb-3"><i class="fa-solid fa-tv text-primary me-2"></i> 自建 TVBox / FongMi 影视源</h1>
-            <p class="lead text-light opacity-75">基于 aiwex 架构打造的全能聚合源，支持 4K 影视、网盘解析、聚合秒播、体育直播与课堂教育</p>
+            <h1 class="display-5 fw-bold mb-3"><i class="fa-solid fa-tv text-primary me-2"></i> 自建 TVBox / FongMi 影视源与网盘加速</h1>
+            <p class="lead text-light opacity-75">全能聚合影视源 + Go/SO 网盘播放多线程加速引擎，秒播 4K、零缓冲体验</p>
             <div class="mt-3">
-                <span class="badge-stat"><i class="fa-solid fa-film me-1"></i> {len(aiwex_data.get('sites', []))} 个优质站点</span>
-                <span class="badge-stat"><i class="fa-solid fa-bolt me-1"></i> {len(aiwex_data.get('parses', []))} 条 VIP 解析</span>
-                <span class="badge-stat"><i class="fa-solid fa-satellite-dish me-1"></i> {len(aiwex_data.get('lives', []))} 套高清直播</span>
-                <span class="badge-stat"><i class="fa-solid fa-shield-halved me-1"></i> 80 个内置 Spider 爬虫</span>
+                <span class="badge-stat"><i class="fa-solid fa-film me-1"></i> 全能源 96 个站点</span>
+                <span class="badge-stat"><i class="fa-solid fa-bolt me-1"></i> 网盘 Range 多线程预加载</span>
+                <span class="badge-stat"><i class="fa-solid fa-microchip me-1"></i> Go / SO 跨平台加速</span>
+                <span class="badge-stat"><i class="fa-solid fa-satellite-dish me-1"></i> 高清直播与 VIP 解析</span>
             </div>
         </div>
 
         <div class="row justify-content-center">
-            <div class="col-lg-8">
+            <div class="col-lg-9">
                 <div class="card card-custom p-4">
                     <h4 class="mb-3 text-white"><i class="fa-solid fa-link text-info me-2"></i> 订阅配置接口</h4>
                     <p class="text-secondary small mb-3">直接将以下任一链接复制粘贴至 FongMi TV 或 TVBox 的「配置地址 / 接口地址」中即可使用：</p>
                     
-                    <label class="form-label text-light fw-bold">1. jsDelivr 高速 CDN 源 (国内首选推荐)</label>
+                    <label class="form-label text-light fw-bold">1. 🚀 全功能聚合源 (jsDelivr CDN 国内首选推荐)</label>
                     <div class="code-box mb-4">
                         <span id="url1">{cdn_base}/aiwex.json</span>
                         <button class="btn-copy ms-2" onclick="copyText('url1')"><i class="fa-regular fa-copy me-1"></i>复制</button>
                     </div>
 
-                    <label class="form-label text-light fw-bold">2. GitHub Pages 官方源</label>
+                    <label class="form-label text-light fw-bold">2. ⚡ 网盘加速极速源 (Go/SO 预加载与自建 Spider)</label>
                     <div class="code-box mb-4">
-                        <span id="url2">{pages_base}/aiwex.json</span>
+                        <span id="url2">{cdn_base}/accelerated.json</span>
                         <button class="btn-copy ms-2" onclick="copyText('url2')"><i class="fa-regular fa-copy me-1"></i>复制</button>
                     </div>
 
-                    <label class="form-label text-light fw-bold">3. GitHub 加速源 (ghproxy 镜像)</label>
-                    <div class="code-box mb-2">
-                        <span id="url3">https://ghproxy.net/https://raw.githubusercontent.com/{repo}/fongmi/subscription/config/aiwex.json</span>
+                    <label class="form-label text-light fw-bold">3. 🌐 精简核心源 (17 核心精品站点)</label>
+                    <div class="code-box mb-4">
+                        <span id="url3">{cdn_base}/custom.json</span>
                         <button class="btn-copy ms-2" onclick="copyText('url3')"><i class="fa-regular fa-copy me-1"></i>复制</button>
+                    </div>
+
+                    <label class="form-label text-light fw-bold">4. 📡 GitHub Pages 官方线路</label>
+                    <div class="code-box mb-2">
+                        <span id="url4">{pages_base}/aiwex.json</span>
+                        <button class="btn-copy ms-2" onclick="copyText('url4')"><i class="fa-regular fa-copy me-1"></i>复制</button>
                     </div>
                 </div>
 
                 <div class="card card-custom p-4">
-                    <h4 class="mb-3 text-white"><i class="fa-solid fa-circle-question text-warning me-2"></i> 使用说明与特性</h4>
-                    <ul class="text-light opacity-90 mb-0" style="line-height: 1.8;">
-                        <li><strong>4K 网盘影视</strong>：涵盖玩偶、花卷、观影、七味、盘库、立播、原盘、蜗牛等核心 4K 频道。</li>
-                        <li><strong>秒播采集站</strong>：整合韩剧、瓜子、独播、闪电、文才、贱片等数十个秒播流。</li>
-                        <li><strong>多元化频道</strong>：包括少儿儿歌、听书评书、电台音乐、综合体育（球通/八八/咖啡）及中小学课堂。</li>
-                        <li><strong>自动化构建</strong>：每次在 GitHub 提交或修改代码，GitHub Actions 会自动校验并完成全球 CDN 部署。</li>
-                    </ul>
+                    <h4 class="mb-3 text-white"><i class="fa-solid fa-rocket text-warning me-2"></i> 网盘播放加速引擎 (GoProxy / SO)</h4>
+                    <p class="text-secondary small mb-3">专为夸克、阿里、115、百度网盘设计的并发预取代理，支持直接在 Android 电视盒子或 PC/软路由运行：</p>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-borderless align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>平台 / 架构</th>
+                                    <th>核心类型</th>
+                                    <th>说明</th>
+                                    <th>获取地址</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Android ARM64</strong></td>
+                                    <td><span class="badge bg-primary">ELF 可执行程序</span></td>
+                                    <td>适用于大部分智能电视盒子与手机 (arm64-v8a)</td>
+                                    <td><a href="{cdn_base}/bin/goproxy-android-arm64" class="btn btn-sm btn-outline-info">下载</a></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Android ARMv7</strong></td>
+                                    <td><span class="badge bg-primary">ELF 可执行程序</span></td>
+                                    <td>适用于 32 位老旧电视盒子/投影仪 (armeabi-v7a)</td>
+                                    <td><a href="{cdn_base}/bin/goproxy-android-armv7" class="btn btn-sm btn-outline-info">下载</a></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Android Native SO</strong></td>
+                                    <td><span class="badge bg-success">JNI 动态库 (.so)</span></td>
+                                    <td>JNI 动态链接库，供 APK/Spider 直接调用</td>
+                                    <td><a href="{cdn_base}/bin/arm64-v8a/libgoproxy.so" class="btn btn-sm btn-outline-info">libgoproxy.so</a></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Linux x86_64</strong></td>
+                                    <td><span class="badge bg-secondary">Linux 可执行程序</span></td>
+                                    <td>软路由 / NAS / Docker / VPS 本地加速</td>
+                                    <td><a href="{cdn_base}/bin/goproxy-linux-amd64" class="btn btn-sm btn-outline-info">下载</a></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Windows x86_64</strong></td>
+                                    <td><span class="badge bg-secondary">Windows EXE</span></td>
+                                    <td>Windows 电脑端使用</td>
+                                    <td><a href="{cdn_base}/bin/goproxy-windows-amd64.exe" class="btn btn-sm btn-outline-info">下载</a></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

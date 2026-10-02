@@ -1,0 +1,178 @@
+name: Build and Release Subscription & GoProxy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Setup Android NDK
+        run: |
+          echo "=== Setting up Android NDK ==="
+          NDK_DIR=""
+          if [ -d "$ANDROID_HOME/ndk" ]; then
+            NDK_DIR=$(find "$ANDROID_HOME/ndk" -maxdepth 1 -mindepth 1 | sort -V | tail -n 1)
+          fi
+          if [ -z "$NDK_DIR" ]; then
+            echo "Installing NDK via sdkmanager..."
+            yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125" || true
+            NDK_DIR="$ANDROID_HOME/ndk/26.1.10909125"
+          fi
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+          echo "Using Android NDK at: $NDK_DIR"
+
+      - name: Build GoProxy Binaries & SO Dynamic Libraries
+        run: |
+          echo "=== Compiling GoProxy Static Binaries ==="
+          mkdir -p goproxy/bin
+
+          # 1. Android ARM64
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o goproxy/bin/goproxy-android-arm64 ./goproxy
+
+          # 2. Android ARMv7 (32-bit)
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-s -w" -o goproxy/bin/goproxy-android-armv7 ./goproxy
+
+          # 3. Linux x86_64
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o goproxy/bin/goproxy-linux-amd64 ./goproxy
+
+          # 4. Windows x86_64
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o goproxy/bin/goproxy-windows-amd64.exe ./goproxy
+
+          echo "=== Compiling Android Native SO via NDK Clang ==="
+          if [ -d "$ANDROID_NDK_HOME" ]; then
+            TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+            
+            # ARM64 SO
+            CC_ARM64="$TOOLCHAIN/aarch64-linux-android24-clang"
+            if [ -f "$CC_ARM64" ]; then
+              echo "Building arm64-v8a libgoproxy.so..."
+              mkdir -p goproxy/bin/arm64-v8a
+              CGO_ENABLED=1 GOOS=android GOARCH=arm64 CC="$CC_ARM64" \
+                go build -buildmode=c-shared -ldflags="-s -w" -o goproxy/bin/arm64-v8a/libgoproxy.so ./goproxy
+            fi
+
+            # ARMv7 SO
+            CC_ARM="$TOOLCHAIN/armv7a-linux-androideabi24-clang"
+            if [ -f "$CC_ARM" ]; then
+              echo "Building armeabi-v7a libgoproxy.so..."
+              mkdir -p goproxy/bin/armeabi-v7a
+              CGO_ENABLED=1 GOOS=android GOARCH=arm GOARM=7 CC="$CC_ARM" \
+                go build -buildmode=c-shared -ldflags="-s -w" -o goproxy/bin/armeabi-v7a/libgoproxy.so ./goproxy
+            fi
+          fi
+
+          ls -lh goproxy/bin/
+
+      - name: Compile Spider JAR from Java Sources
+        run: |
+          if [ -d "spider_source/src" ]; then
+            echo "=== Compiling Spider Java Sources ==="
+            mkdir -p build_spider/classes
+            javac -source 17 -target 17 \
+              -cp "$ANDROID_HOME/platforms/android-34/android.jar" \
+              -d build_spider/classes \
+              $(find spider_source/src -name "*.java")
+
+            echo "=== Converting to DEX via D8 ==="
+            $ANDROID_HOME/build-tools/34.0.0/d8 --output build_spider/ $(find build_spider/classes -name "*.class")
+
+            echo "=== Packaging spider_open.jar ==="
+            cd build_spider && jar cf spider_open.jar classes.dex && cd ..
+            mkdir -p spider
+            cp build_spider/spider_open.jar spider/spider_open.jar
+            echo "=== Spider JAR packaging successful ==="
+          fi
+
+      - name: Build Subscription Distributions & Web Portal
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 scripts/build_source.py
+
+      - name: Deploy to GitHub Pages Branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist_source
+          publish_branch: gh-pages
+          force_orphan: true
+
+      - name: Create / Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        with:
+          tag_name: latest
+          name: "TVBox / FongMi 影视源与 GoProxy 网盘加速器 Latest Release"
+          body: |
+            ### 🚀 TVBox / FongMi 影视源与网盘加速代理最新构建产物
+            - **全功能聚合源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/aiwex.json`
+            - **网盘加速极速源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/accelerated.json`
+            - **精简核心源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/custom.json`
+            - **直播源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/live/iptv.m3u`
+
+            #### 包含附件：
+            - `spider_open.jar`: 包含自研网盘加速桥接器与开源爬虫
+            - `goproxy-android-arm64`: 适用于 Android 64位智能电视盒子的后台加速守护进程
+            - `goproxy-android-armv7`: 适用于 32位老款盒子的后台加速守护进程
+            - `libgoproxy.so`: Android JNI 原生动态链接库
+            - `goproxy-linux-amd64`: Linux / NAS / 软路由加速器
+            - `goproxy-windows-amd64.exe`: Windows PC 加速器
+          draft: false
+          prerelease: false
+          files: |
+            spider/spider_open.jar
+            goproxy/bin/goproxy-android-arm64
+            goproxy/bin/goproxy-android-armv7
+            goproxy/bin/goproxy-linux-amd64
+            goproxy/bin/goproxy-windows-amd64.exe
+            goproxy/bin/arm64-v8a/libgoproxy.so
+            goproxy/bin/armeabi-v7a/libgoproxy.so
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Workflow Summary
+        run: |
+          REPO="${{ github.repository }}"
+          OWNER="${{ github.repository_owner }}"
+          REPO_NAME="${REPO#*/}"
+          PAGES_URL="https://${OWNER}.github.io/${REPO_NAME}/aiwex.json"
+          CDN_URL="https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/aiwex.json"
+          ACC_URL="https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/accelerated.json"
+
+          echo "### 🚀 TVBox / FongMi 影视源与 GoProxy 加速引擎构建发布成功！" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 接口类型 | 订阅配置链接 |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🚀 **全功能聚合源 (jsDelivr CDN)** | \`${CDN_URL}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| ⚡ **网盘加速极速源 (Go/SO 加速)** | \`${ACC_URL}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🌐 **精简核心源 (17 站点)** | \`https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/custom.json\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📡 **GitHub Pages 官方线路** | \`${PAGES_URL}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📺 **高清直播源 (IPTV M3U)** | \`https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/live/iptv.m3u\` |" >> $GITHUB_STEP_SUMMARY

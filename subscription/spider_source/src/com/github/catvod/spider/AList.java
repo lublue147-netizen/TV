@@ -115,7 +115,7 @@ public class AList extends Spider {
         JSONObject result = new JSONObject();
         result.put("parse", 0);
         result.put("playUrl", "");
-        result.put("url", id);
+        result.put("url", com.github.catvod.proxy.GoProxy.wrap(id, null));
         return result.toString();
     }
 

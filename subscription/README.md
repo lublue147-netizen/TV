@@ -1,115 +1,135 @@
-# 📺 自建 TVBox / FongMi TV 影视订阅源
+# 📺 TVBox / FongMi 影视源与网盘加速代理独立发布中心
 
-本项目基于 `aiwex` 高性能影视订阅源架构，提供了一套完整的、可自主维护与扩展的订阅源仓库。所有构建、校验、哈希计算以及全球 CDN 发布均通过 **GitHub Actions** 自动化完成，无需在本地安装任何环境。
+本项目是针对 **TVBox** 与 **FongMi TV** 打造的独立影视订阅源与网盘播放加速发布中心。集成全能影视源、模块化精简源、网盘极速源、开源 Java Spider 爬虫、以及高性能 **Go / SO 网盘并发加速代理引擎 (GoProxy)**。
+
+所有组件的编译、DEX 打包、跨平台编译、MD5 校验及全球 CDN 部署均通过 **GitHub Actions** 自动化完成，无需在本地安装配置任何开发环境。
 
 ---
 
-## 一、订阅链接（即开即用）
+## ⚡ 核心功能与亮点
+
+1. **自主独立发布**: 
+   - 具备专属独立 GitHub 仓库与独立的 GitHub Actions CI/CD 流水线。
+   - 自动推送到 `gh-pages` 分支并创建 GitHub Releases，提供全球 CDN 与官方线路。
+2. **Go / SO 网盘播放并发加速代理 (GoProxy)**:
+   - 针对**夸克网盘、阿里云盘、115网盘、百度网盘、AList、WebDAV**等网盘播放，突破单线程限速。
+   - **多线程 Range 分块并发预加载**：将视频流切分为 2MB/4MB 块，后台多协程预取并缓存至高速内存环形队列，ExoPlayer 拖动进度条即刻秒播。
+   - 提供 **Android ARM64 / ARMv7 独立进程**、**JNI `.so` 动态库**（`libgoproxy.so`）及 **Java 纯流代理后备机制**。
+3. **全开源 Spider 爬虫支持**:
+   - 包含完整的 Java Spider 源码工程（`spider_source/`），CI 流水线使用 Android `d8` 自动转为 `classes.dex` 并打包成 `spider_open.jar`。
+   - 内置 `GoProxy` 自动桥接与 `Proxy.java` 代理路由。
+4. **多形态订阅接口**:
+   - **全功能聚合源 (`aiwex.json`)**：96 个全能站点、4 条 VIP 解析、高清直播与安全 DoH。
+   - **网盘极速源 (`accelerated.json`)**：专为 Go/SO 网盘加速设计的纯净 4K 与 AList 线路。
+   - **精简核心源 (`custom.json`)**：精选 17 个高可用核心站点。
+
+---
+
+## 🚀 一、订阅配置地址（即开即用）
 
 在 **FongMi TV** 或 **TVBox** 的「设置」->「配置地址」中填入以下任一链接即可：
 
-| 线路类型 | 订阅链接 | 说明 |
+| 线路类型 | 接口订阅地址 | 说明 |
 | :--- | :--- | :--- |
-| **🚀 jsDelivr 高速 CDN (推荐)** | `https://cdn.jsdelivr.net/gh/lublue147-netizen/TV@gh-pages/aiwex.json` | 国内首选，全球 CDN 节点秒级加速 |
-| **🌐 GitHub Pages 官方线路** | `https://lublue147-netizen.github.io/TV/aiwex.json` | 官方静态托管源，实时更新 |
-| **⚡ GitHub 加速镜像 (ghproxy)** | `https://ghproxy.net/https://raw.githubusercontent.com/lublue147-netizen/TV/fongmi/subscription/config/aiwex.json` | 镜像代理通道 |
-| **📦 轻量精简版源 (Custom)** | `https://cdn.jsdelivr.net/gh/lublue147-netizen/TV@gh-pages/custom.json` | 去繁从简，精选 17 个高可用核心站点 |
+| 🚀 **全功能聚合源 (jsDelivr CDN)** | `https://cdn.jsdelivr.net/gh/lublue147-netizen/subscription@gh-pages/aiwex.json` | 96 站点全能源，国内秒级加载 |
+| ⚡ **网盘加速极速源 (Go/SO 预加载)** | `https://cdn.jsdelivr.net/gh/lublue147-netizen/subscription@gh-pages/accelerated.json` | 配合 GoProxy / 纯 Java 预拉取加速 |
+| 🌐 **精简核心源 (17 站点)** | `https://cdn.jsdelivr.net/gh/lublue147-netizen/subscription@gh-pages/custom.json` | 纯净精简，启动加载快 |
+| 📡 **GitHub Pages 官方线路** | `https://lublue147-netizen.github.io/subscription/aiwex.json` | 实时更新线路 |
+| 📺 **电视直播源 (IPTV M3U)** | `https://cdn.jsdelivr.net/gh/lublue147-netizen/subscription@gh-pages/live/iptv.m3u` | 央视卫视高清直播流 |
 
 ---
 
-## 二、架构分析：`aiwex.json` 核心组成
+## 🏎️ 二、GoProxy 网盘加速引擎 (Go & SO Native)
 
-完整的订阅源由以下几个关键模块组成：
+### 1. 为什么需要网盘加速代理？
+- **单线程限速严重**：阿里、夸克、115 等网盘对单 HTTP 连接限速（如 500KB~2MB/s），ExoPlayer 读取 4K 蓝光高码率原盘时频繁出现“转圈”缓冲。
+- **并发切片提速**：GoProxy 接收 ExoPlayer 的 HTTP 请求，拆解为多个并发 Range 请求分别抓取数据块，总带宽轻松跑满宽带上限。
+- **拖动秒响应**：用户跳转进度条时，即时取消过期的预取协程，重新对准新时间戳加载，杜绝拖动时数十秒的无响应。
 
+### 2. 预编译发布包（GitHub Actions CI 自动构建）
+
+可以在项目的 [Releases](https://github.com/lublue147-netizen/subscription/releases) 或 `gh-pages` 分支直接获取对应平台的可执行二进制与动态库：
+
+- **Android 智能电视盒子 / 手机**: `goproxy-android-arm64` (arm64-v8a)
+- **老款电视盒子 / 投影仪**: `goproxy-android-armv7` (armeabi-v7a)
+- **Android 原生 SO 库**: `libgoproxy.so` (支持 JNI 动态加载)
+- **Linux NAS / 软路由 / Docker**: `goproxy-linux-amd64`
+- **Windows PC**: `goproxy-windows-amd64.exe`
+
+### 3. 本地启动加速服务
+
+```bash
+# 默认在 127.0.0.1:9978 启动，配置 64MB 内存环形缓存
+./goproxy-linux-amd64 -port 9978 -cache 64
 ```
-aiwex.json
-├── spider      # 核心爬虫 Jar 包（含 DEX 字节码与 SO 库），负责各站点的解析与视频嗅探
-├── wallpaper   # 背景壁纸接口（如 ACG 动漫画风）
-├── logo        # 订阅源加载时的动态或静态 Logo
-├── sites       # 点播站点列表（全能影视、秒播采集、网盘搜索、体育直播、课堂教育等）
-├── parses      # VIP 解析接口（用于嗅探解析爱优腾芒等平台）
-├── lives       # 电视直播源（M3U / TXT 列表，含央视、卫视、地方台等）
-├── doh         # DNS-over-HTTPS 安全加密解析配置（防 DNS 劫持）
-├── rules       # 针对特定视频流域名的嗅探拦截与重定向规则
-├── ads         # 广告域名黑名单列表
-└── headers     # 特殊站点所必需的自定义 HTTP 请求头（如防盗链 Referer 或特定 UA）
-```
 
-### 1. 站点分类体系（共 96 个站点）
-1. **网盘聚合与榜单**：豆瓣热榜、网盘配置中心、我的网盘。
-2. **4K 高清专区**：玩偶、花卷、观影、七味、盘库、虎斑、木偶、多多、剧透、立播、原盘、蜗牛等。
-3. **秒播与采集站**：韩剧秒播、瓜子、独播、闪电、文才、贱片、大师兄等。
-4. **垂直领域**：
-   - 🤡 **动漫专区**：稀饭动漫、次元动漫、魔都动漫。
-   - 🎃 **听书有声**：小红听书、小马听书、极品听书、悦庭听书。
-   - 👼 **少儿早教**：宝宝儿歌、贝贝儿歌、兔兔儿歌。
-   - 💃 **音乐与电台**：跳舞教学、梨园戏曲、蜻蜓电台、KTV 音乐、网易云、酷我音乐。
-   - 🌐 **体育赛事**：飞球体育、瓜子体育、球通体育、八八看球、咖啡体育、WWE。
-   - 📚 **名师课堂**：小学课堂、初中课堂、高中课堂、少儿教育。
-5. **网盘挂载与协议**：AList 挂载、WebDAV 挂载、Emby 私人影院。
-6. **聚合盘搜**：海音搜、九七搜、趣盘搜、爱盘搜、卡卡盘搜。
+HTTP 端点说明：
+- **加速播放端点**: `http://127.0.0.1:9978/play?url=<VIDEO_URL>&workers=3`
+- **普通代理端点**: `http://127.0.0.1:9978/proxy?url=<VIDEO_URL>`
+- **健康检查**: `http://127.0.0.1:9978/health`
+- **运行状态与缓存命中率**: `http://127.0.0.1:9978/stats`
 
 ---
 
-## 三、目录结构
+## 📁 三、仓库目录结构
 
 ```
 subscription/
+├── .github/
+│   └── workflows/
+│       └── build-and-release.yml   # 独立 CI/CD：编译 Go/SO、Spider DEX、发布 Pages 与 Release
 ├── config/
-│   ├── aiwex.json          # 完整主配置文件（96 个站点）
-│   └── custom.json         # 模块化精简模板（方便日常增删调试）
+│   ├── aiwex.json                  # 96 个站点全能主配置
+│   ├── custom.json                 # 精简核心配置模板
+│   └── accelerated.json            # 专为网盘加速优化的配置
 ├── live/
-│   └── iptv.m3u            # 本地归档维护的高清直播源
+│   └── iptv.m3u                    # 高清电视直播源
 ├── spider/
-│   └── custom_spider.jar   # 自主托管的 Spider 核心爬虫包（MD5: fc8f993c9297d38139363cd0e3db9853）
+│   ├── custom_spider.jar           # 80 个 Spider 爬虫二进制 Jar
+│   └── spider_open.jar             # 由 spider_source 编译生成的纯开源爬虫 Jar
+├── spider_source/                  # 爬虫 Java 源码
+│   └── src/com/github/catvod/
+│       ├── crawler/Spider.java     # 基础 Spider 类
+│       ├── spider/
+│       │   ├── Init.java           # 爬虫初始化
+│       │   ├── Proxy.java          # 核心代理桥接
+│       │   ├── AList.java          # AList 挂载与加速直链
+│       │   ├── PanSou.java         # 网盘聚合搜索
+│       │   ├── Douban.java         # 豆瓣热榜
+│       │   ├── Bili.java           # Bilibili 嗅探
+│       │   ├── AppV7.java          # V7 采集站
+│       │   └── Push.java           # 剪贴板推送
+│       ├── proxy/
+│       │   ├── GoProxy.java        # Go/SO 加速器调度管理
+│       │   └── NetdiskStream.java  # 纯 Java 多线程预取兜底
+│       └── utils/
+│           ├── OkHttp.java         # 高性能 HTTP 客户端
+│           └── Crypto.java         # 加解密工具类
+├── goproxy/                        # Go 网盘加速代理与 SO 工程
+│   ├── go.mod                      # Go 模块定义
+│   ├── main.go                     # CLI 独立可执行程序入口
+│   ├── cshared.go                  # CGO 与 JNI 导出代码 (编译 libgoproxy.so)
+│   ├── build.sh                    # 跨平台交叉编译脚本
+│   ├── README.md                   # GoProxy 详细技术文档
+│   └── server/
+│       ├── server.go               # HTTP 路由与状态服务
+│       ├── accelerator.go          # Range 并发切片与预取引擎
+│       ├── chunk_cache.go          # LRU 内存环形缓存
+│       └── netdisk_rules.go        # 夸克/阿里/115/百度专用规则与 Header 注入
 ├── scripts/
-│   └── build_source.py     # 自动化构建与校验脚本（支持多环境生成与网页门户）
-└── README.md               # 本说明文档
+│   └── build_source.py             # 静态发布打包、MD5 计算与网页门户生成
+└── README.md                       # 本说明文档
 ```
 
 ---
 
-## 四、如何自定义与维护你的源？
+## 🛠️ 四、云端全自动构建与发布说明
 
-### 1. 添加或修改站点
-编辑 `subscription/config/aiwex.json` 或 `subscription/config/custom.json`，在 `"sites"` 数组中添加新的对象：
+> 本项目遵循**“不要本地安装构建，所有代码同步到 GitHub 完成构建”**的原则。
 
-```json
-{
-  "key": "MySiteKey",
-  "name": "🎬┃我的站点┃4K",
-  "type": 3,
-  "api": "csp_AiNewWoggGuard",
-  "searchable": 1,
-  "quickSearch": 1,
-  "filterable": 1,
-  "ext": ""
-}
-```
-
-* `type`: 站点类型（`0`: XML, `1`: JSON CMS, `3`: 爬虫 Spider/JS/Py）。
-* `api`: 爬虫类名，需在 `spider` 的 jar 包中有对应类实现（如 `csp_AiNewWoggGuard`）。
-* `searchable`: 是否参与全站聚合搜索（`1` 为允许，`0` 为禁止）。
-
-### 2. 更换核心 Spider 爬虫包
-若要替换为自己编译的爬虫 Jar：
-1. 将新的 `.jar` 文件覆盖放置在 `subscription/spider/custom_spider.jar`。
-2. 提交并推送到 GitHub。
-3. GitHub Actions 会自动计算新的 MD5 值并更新到生成的订阅源中，保证客户端能感知更新并重新拉取。
-
-### 3. 修改电视直播
-编辑 `subscription/live/iptv.m3u`，增加您的私有频道或测试流，每次推送均会自动同步至 CDN 镜像。
-
----
-
-## 五、GitHub Actions 自动化构建机制
-
-本项目配置了 `.github/workflows/deploy-source.yml` 工作流：
-1. **触发时机**：每次向 `fongmi` 分支推送带有 `subscription/**` 路径的改动，或手动点击 `Run workflow`。
-2. **自动构建**：
-   - 校验所有 JSON 语法的合法性，杜绝任何排版或逗号语法错误。
-   - 自动提取并计算 `custom_spider.jar` 的最新 MD5 散列值。
-   - 打包生成静态网页门户、标准 `index.json`、完整 `aiwex.json`、精简 `custom.json` 以及直播资源。
-3. **自动发布**：
-   - 产物自动部署到仓库的 `gh-pages` 分支。
-   - 自动生成清晰的 GitHub Step Summary，直观展示所有订阅 URL。
+只要在 GitHub 仓库有新的 `push` 提交，GitHub Actions 将全自动按序执行：
+1. **安装 Go 1.22 与 Android NDK**，跨平台交叉编译 Android `arm64`/`armv7` 原生程序及 `libgoproxy.so` 动态库。
+2. **安装 JDK 21 与 Android SDK**，调用 `javac` 编译 `spider_source/` 中的 Java 代码，并用 `d8` 转换为 Dalvik 字节码（`classes.dex`），打包为 `spider_open.jar`。
+3. **运行 `scripts/build_source.py`** 校验配置、计算哈希并生成网页导航门户。
+4. **全自动部署到 `gh-pages` 分支**，全球 jsDelivr CDN 节点与 GitHub Pages 即可同步生效。
+5. **自动创建并更新 GitHub Release**，上传最新预编译二进制附件供用户直接下载。
