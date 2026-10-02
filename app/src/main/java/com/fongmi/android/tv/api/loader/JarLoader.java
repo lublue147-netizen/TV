@@ -21,6 +21,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,6 +30,8 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 import dalvik.system.DexClassLoader;
 
@@ -38,6 +41,7 @@ public class JarLoader {
     private final ConcurrentHashMap<String, Method> methods;
     private final ConcurrentHashMap<String, Spider> spiders;
     private final ConcurrentHashMap<String, Object> locks;
+    private final ConcurrentHashMap<String, Boolean> weaponized;
     private volatile String recent;
 
     public JarLoader() {
@@ -45,6 +49,7 @@ public class JarLoader {
         methods = new ConcurrentHashMap<>();
         spiders = new ConcurrentHashMap<>();
         locks = new ConcurrentHashMap<>();
+        weaponized = new ConcurrentHashMap<>();
     }
 
     public void clear() {
@@ -53,6 +58,7 @@ public class JarLoader {
         methods.clear();
         spiders.clear();
         locks.clear();
+        weaponized.clear();
         recent = null;
     }
 
@@ -63,40 +69,59 @@ public class JarLoader {
     private void load(String key, File file) {
         if (Thread.interrupted()) return;
         if (!Path.exists(file) || !file.setReadOnly()) return;
+        boolean guarded = isGuardedJar(file);
+        if (guarded) weaponized.put(key, Boolean.TRUE);
         String cachePath = Path.jar().getAbsolutePath();
         DexClassLoader loader = new DexClassLoader(file.getAbsolutePath(), cachePath, cachePath, App.get().getClassLoader());
-        invokeInit(loader);
-        invokeProxy(key, loader);
+        if (!guarded && isWeaponized(loader)) {
+            weaponized.put(key, Boolean.TRUE);
+        }
+        invokeInit(key, loader);
+        if (!Boolean.TRUE.equals(weaponized.get(key))) {
+            invokeProxy(key, loader);
+        }
         loaders.put(key, loader);
     }
 
-    private void invokeInit(DexClassLoader loader) {
-        try {
-            Class<?> clz = loader.loadClass("com.github.catvod.spider.Init");
-            if (isWeaponized(clz)) {
-                neutralizeWeaponizedInit(clz);
-                return;
+    private boolean isGuardedJar(File file) {
+        try (ZipFile zip = new ZipFile(file)) {
+            Enumeration<? extends ZipEntry> entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                String name = entries.nextElement().getName().toLowerCase();
+                if (name.endsWith(".so") || name.endsWith(".guard") || name.contains("shinidie") || name.contains("dexnative") || name.contains("wexguard")) {
+                    return true;
+                }
             }
-            neutralizeWeaponizedInit(clz);
-            Method method = clz.getMethod("init", Context.class);
-            method.invoke(clz, SpiderContext.get());
-        } catch (Throwable e) {
-            e.printStackTrace();
+        } catch (Throwable ignored) {
         }
+        return false;
     }
 
-    private boolean isWeaponized(Class<?> clz) {
+    private boolean isWeaponized(DexClassLoader loader) {
         try {
+            loader.loadClass("com.github.catvod.spider.DexNative");
+            return true;
+        } catch (Throwable ignored) {
+        }
+        try {
+            loader.loadClass("com.github.catvod.spider.BaseSpiderGuard");
+            return true;
+        } catch (Throwable ignored) {
+        }
+        try {
+            Class<?> clz = loader.loadClass("com.github.catvod.spider.Init");
             for (Method m : clz.getDeclaredMethods()) {
+                if (Modifier.isNative(m.getModifiers())) return true;
                 String name = m.getName();
-                if (name.contains("GoProxy") || name.contains("FloatBall") || name.contains("ActivityStart") || name.contains("killProcess")) {
+                if (name.contains("GoProxy") || name.contains("FloatBall") || name.contains("ActivityStart") || name.contains("killProcess") || name.contains("getLoader") || name.contains("proxyInvoke")) {
                     return true;
                 }
             }
             for (Class<?> inner : clz.getDeclaredClasses()) {
                 for (Method m : inner.getDeclaredMethods()) {
+                    if (Modifier.isNative(m.getModifiers())) return true;
                     String name = m.getName();
-                    if (name.contains("killProcess") || name.contains("GoProxy")) {
+                    if (name.contains("killProcess") || name.contains("GoProxy") || name.contains("getLoader")) {
                         return true;
                     }
                 }
@@ -106,7 +131,19 @@ public class JarLoader {
         return false;
     }
 
-    private void neutralizeWeaponizedInit(Class<?> clz) {
+    private void invokeInit(String key, DexClassLoader loader) {
+        try {
+            Class<?> clz = loader.loadClass("com.github.catvod.spider.Init");
+            neutralizeWeaponizedInit(clz, loader);
+            if (Boolean.TRUE.equals(weaponized.get(key))) return;
+            Method method = clz.getMethod("init", Context.class);
+            method.invoke(clz, SpiderContext.get());
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void neutralizeWeaponizedInit(Class<?> clz, DexClassLoader loader) {
         try {
             Object instance = null;
             try {
@@ -143,6 +180,10 @@ public class JarLoader {
                         } else if (ExecutorService.class.isAssignableFrom(type)) {
                             if (f.get(target) == null) {
                                 f.set(target, Executors.newCachedThreadPool());
+                            }
+                        } else if (ClassLoader.class.isAssignableFrom(type)) {
+                            if (f.get(target) == null) {
+                                f.set(target, loader);
                             }
                         }
                     } catch (Throwable ignored) {
@@ -201,9 +242,19 @@ public class JarLoader {
         return spiders.computeIfAbsent(spKey, k -> {
             try {
                 parseJar(jaKey, jar);
+                if (Boolean.TRUE.equals(weaponized.get(jaKey))) {
+                    return new SpiderNull();
+                }
+                if (api.endsWith("Guard") || api.contains("Guard")) {
+                    return new SpiderNull();
+                }
                 DexClassLoader loader = loaders.get(jaKey);
                 if (loader == null) return new SpiderNull();
-                Spider spider = (Spider) loader.loadClass("com.github.catvod.spider." + api.split("csp_")[1]).newInstance();
+                Class<?> clz = loader.loadClass("com.github.catvod.spider." + api.split("csp_")[1]);
+                if (clz.getName().endsWith("Guard") || (clz.getSuperclass() != null && clz.getSuperclass().getName().contains("Guard"))) {
+                    return new SpiderNull();
+                }
+                Spider spider = (Spider) clz.newInstance();
                 spider.siteKey = key;
                 spider.init(SpiderContext.get(), ext);
                 return spider;
@@ -215,21 +266,33 @@ public class JarLoader {
     }
 
     private DexClassLoader requireRecentLoader() {
-        DexClassLoader loader = loaders.get(recent);
-        if (loader == null) throw new IllegalStateException("No jar loaded for recent key: " + recent);
-        return loader;
+        return recent != null ? loaders.get(recent) : null;
     }
 
-    public JSONObject jsonExt(String key, LinkedHashMap<String, String> jxs, String url) throws Throwable {
-        Class<?> clz = requireRecentLoader().loadClass("com.github.catvod.parser.Json" + key);
-        Method method = clz.getMethod("parse", LinkedHashMap.class, String.class);
-        return (JSONObject) method.invoke(null, jxs, url);
+    public JSONObject jsonExt(String key, LinkedHashMap<String, String> jxs, String url) {
+        try {
+            DexClassLoader loader = requireRecentLoader();
+            if (loader == null) return new JSONObject();
+            Class<?> clz = loader.loadClass("com.github.catvod.parser.Json" + key);
+            Method method = clz.getMethod("parse", LinkedHashMap.class, String.class);
+            return (JSONObject) method.invoke(null, jxs, url);
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return new JSONObject();
+        }
     }
 
-    public JSONObject jsonExtMix(String flag, String key, String name, LinkedHashMap<String, HashMap<String, String>> jxs, String url) throws Throwable {
-        Class<?> clz = requireRecentLoader().loadClass("com.github.catvod.parser.Mix" + key);
-        Method method = clz.getMethod("parse", LinkedHashMap.class, String.class, String.class, String.class);
-        return (JSONObject) method.invoke(null, jxs, name, flag, url);
+    public JSONObject jsonExtMix(String flag, String key, String name, LinkedHashMap<String, HashMap<String, String>> jxs, String url) {
+        try {
+            DexClassLoader loader = requireRecentLoader();
+            if (loader == null) return new JSONObject();
+            Class<?> clz = loader.loadClass("com.github.catvod.parser.Mix" + key);
+            Method method = clz.getMethod("parse", LinkedHashMap.class, String.class, String.class, String.class);
+            return (JSONObject) method.invoke(null, jxs, name, flag, url);
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return new JSONObject();
+        }
     }
 
     public Object[] proxy(Map<String, String> params) throws Exception {

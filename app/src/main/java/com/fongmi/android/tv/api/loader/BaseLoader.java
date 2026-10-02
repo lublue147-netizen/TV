@@ -56,10 +56,12 @@ public class BaseLoader {
     }
 
     public Spider getSpider(String key, String api, String ext, String jar) {
-        if (isPy(api)) return pyLoader.getSpider(key, api, ext);
-        else if (isJs(api)) return jsLoader.getSpider(key, api, ext, jar);
-        else if (isCsp(api)) return jarLoader.getSpider(key, api, ext, jar);
-        else return new SpiderNull();
+        Spider spider;
+        if (isPy(api)) spider = pyLoader.getSpider(key, api, ext);
+        else if (isJs(api)) spider = jsLoader.getSpider(key, api, ext, jar);
+        else if (isCsp(api)) spider = jarLoader.getSpider(key, api, ext, jar);
+        else spider = new SpiderNull();
+        return new SafeSpider(spider);
     }
 
     public Spider getSpider(String key) {
@@ -67,7 +69,7 @@ public class BaseLoader {
         Live live = LiveConfig.get().getLive(key);
         if (!site.isEmpty()) return site.spider();
         if (!live.isEmpty()) return live.spider();
-        return new SpiderNull();
+        return new SafeSpider(new SpiderNull());
     }
 
     public void setRecent(String key, String api, String jar) {

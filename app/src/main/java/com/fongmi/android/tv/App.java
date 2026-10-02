@@ -81,9 +81,40 @@ public class App extends Application implements Application.ActivityLifecycleCal
     @Override
     public void onCreate() {
         super.onCreate();
+        installExceptionHandler();
         Init.set(com.fongmi.android.tv.api.loader.SpiderContext.get());
         Notify.createChannel();
         registerActivityLifecycleCallbacks(this);
+    }
+
+    private void installExceptionHandler() {
+        Thread.UncaughtExceptionHandler defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler((thread, ex) -> {
+            if (isSpiderOrLoaderException(ex)) {
+                ex.printStackTrace();
+                return;
+            }
+            if (defaultHandler != null) {
+                defaultHandler.uncaughtException(thread, ex);
+            }
+        });
+    }
+
+    private static boolean isSpiderOrLoaderException(Throwable t) {
+        while (t != null) {
+            String msg = String.valueOf(t.getMessage());
+            if (msg.contains("catvod") || msg.contains("Spider") || msg.contains("DexClassLoader") || msg.contains("wex")) {
+                return true;
+            }
+            for (StackTraceElement element : t.getStackTrace()) {
+                String cls = element.getClassName();
+                if (cls.contains("catvod") || cls.contains("Spider") || cls.contains("JarLoader") || cls.contains("BaseLoader") || cls.contains("SiteApi") || cls.contains("SafeSpider")) {
+                    return true;
+                }
+            }
+            t = t.getCause();
+        }
+        return false;
     }
 
     @Override

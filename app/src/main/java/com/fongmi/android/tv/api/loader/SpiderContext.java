@@ -1,11 +1,11 @@
 package com.fongmi.android.tv.api.loader;
 
+import android.app.Application;
 import android.content.Context;
-import android.content.ContextWrapper;
 
 import com.fongmi.android.tv.App;
 
-public class SpiderContext extends ContextWrapper {
+public class SpiderContext extends Application {
 
     private static volatile SpiderContext instance;
 
@@ -13,15 +13,16 @@ public class SpiderContext extends ContextWrapper {
         if (instance == null) {
             synchronized (SpiderContext.class) {
                 if (instance == null) {
-                    instance = new SpiderContext(App.get());
+                    instance = new SpiderContext();
                 }
             }
         }
         return instance;
     }
 
-    public SpiderContext(Context base) {
-        super(base);
+    public SpiderContext() {
+        super();
+        attachBaseContext(App.get());
     }
 
     @Override
