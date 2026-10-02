@@ -12,10 +12,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.os.HandlerCompat;
 
+import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.utils.FirebaseUtil;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.hook.Hook;
 import com.github.catvod.Init;
+import com.github.catvod.net.interceptor.RequestInterceptor;
 import com.google.gson.Gson;
 
 public class App extends Application implements Application.ActivityLifecycleCallbacks {
@@ -86,6 +88,7 @@ public class App extends Application implements Application.ActivityLifecycleCal
         installExceptionHandler();
         installLooperProtector();
         FirebaseUtil.init(this);
+        RequestInterceptor.setDefaultUserAgent(Setting.getUa());
         Init.set(com.fongmi.android.tv.api.loader.SpiderContext.get());
         Notify.createChannel();
         registerActivityLifecycleCallbacks(this);

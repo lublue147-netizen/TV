@@ -213,12 +213,18 @@ public class JarLoader {
             String md5 = texts.length > 1 ? texts[1].trim() : "";
             if (md5.startsWith("http")) md5 = OkHttp.string(md5).trim();
             jar = texts[0];
-            if (!md5.isEmpty() && Crypto.equals(Path.jar(jar), md5)) {
-                load(key, Path.jar(jar));
-            } else if (jar.startsWith("http")) {
-                load(key, Download.create(jar, Path.jar(jar)).get());
-            } else if (jar.startsWith("file")) {
-                load(key, Path.local(jar));
+            try {
+                if (!md5.isEmpty() && Crypto.equals(Path.jar(jar), md5)) {
+                    load(key, Path.jar(jar));
+                } else if (jar.startsWith("http")) {
+                    load(key, Download.create(jar, Path.jar(jar)).get());
+                } else if (jar.startsWith("file")) {
+                    load(key, Path.local(jar));
+                }
+            } catch (Throwable e) {
+                e.printStackTrace();
+                FirebaseUtil.setCustomKey("spider_jar", jar);
+                FirebaseUtil.recordException("jar_download_fail", e);
             }
         }
     }

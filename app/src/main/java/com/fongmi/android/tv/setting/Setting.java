@@ -2,6 +2,7 @@ package com.fongmi.android.tv.setting;
 
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.utils.ResUtil;
+import com.github.catvod.net.interceptor.RequestInterceptor;
 import com.github.catvod.utils.Prefers;
 
 public class Setting {
@@ -33,6 +34,7 @@ public class Setting {
 
     public static void putUa(String ua) {
         Prefers.put("ua", ua);
+        RequestInterceptor.setDefaultUserAgent(ua);
     }
 
     public static String getKeyword() {
