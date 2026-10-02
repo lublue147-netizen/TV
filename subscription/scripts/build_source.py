@@ -56,6 +56,14 @@ def build():
     # Self-hosted spider URL: jsDelivr CDN serves .txt files with 100% reliability
     spider_url = f"{cdn_base}/spider.txt;md5;{spider_md5}"
 
+    # 1.2 Copy Open Source Spider Jar if compiled
+    spider_open_src = SPIDER_DIR / "spider_open.jar"
+    if spider_open_src.exists():
+        open_md5 = compute_md5(spider_open_src)
+        shutil.copy2(spider_open_src, DIST_DIR / "spider_open.jar")
+        shutil.copy2(spider_open_src, DIST_DIR / "spider_open.txt")
+        print(f"[+] Open Spider JAR packaged: dist/spider_open.jar & dist/spider_open.txt (MD5: {open_md5})")
+
     # 2. Copy Live Streams
     live_src = LIVE_DIR / "iptv.m3u"
     if live_src.exists():

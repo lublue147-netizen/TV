@@ -21,10 +21,36 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
+      - name: Compile Spider JAR from Java Sources
+        run: |
+          if [ -d "subscription/spider_source/src" ]; then
+            echo "=== Compiling Spider Java Sources ==="
+            mkdir -p build_spider/classes
+            javac -source 17 -target 17 \
+              -cp "$ANDROID_HOME/platforms/android-34/android.jar" \
+              -d build_spider/classes \
+              $(find subscription/spider_source/src -name "*.java")
+
+            echo "=== Converting to DEX via D8 ==="
+            $ANDROID_HOME/build-tools/34.0.0/d8 --output build_spider/ $(find build_spider/classes -name "*.class")
+
+            echo "=== Packaging spider_open.jar ==="
+            cd build_spider && jar cf spider_open.jar classes.dex && cd ..
+            mkdir -p subscription/spider
+            cp build_spider/spider_open.jar subscription/spider/spider_open.jar
+            echo "=== Open Spider JAR compilation successful ==="
+          fi
 
       - name: Build Subscription Source
         env:
