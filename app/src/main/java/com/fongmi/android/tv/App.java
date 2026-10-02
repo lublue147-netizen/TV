@@ -76,32 +76,45 @@ public class App extends Application implements Application.ActivityLifecycleCal
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
+        installExceptionHandler();
         Init.set(base);
     }
 
     @Override
     public void onCreate() {
         super.onCreate();
-        FirebaseUtil.init(this);
         installExceptionHandler();
+        FirebaseUtil.init(this);
         Init.set(com.fongmi.android.tv.api.loader.SpiderContext.get());
         Notify.createChannel();
         registerActivityLifecycleCallbacks(this);
     }
 
     private void installExceptionHandler() {
-        Thread.UncaughtExceptionHandler defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
-        Thread.setDefaultUncaughtExceptionHandler((thread, ex) -> {
+        Thread.UncaughtExceptionHandler current = Thread.getDefaultUncaughtExceptionHandler();
+        if (current instanceof AppCrashHandler) return;
+        Thread.setDefaultUncaughtExceptionHandler(new AppCrashHandler(current));
+    }
+
+    private static class AppCrashHandler implements Thread.UncaughtExceptionHandler {
+        private final Thread.UncaughtExceptionHandler parent;
+
+        public AppCrashHandler(Thread.UncaughtExceptionHandler parent) {
+            this.parent = parent;
+        }
+
+        @Override
+        public void uncaughtException(@NonNull Thread thread, @NonNull Throwable ex) {
             writeCrashLog(thread, ex);
             recordCrashlytics(thread, ex);
             if (isSpiderOrLoaderException(ex)) {
                 ex.printStackTrace();
                 return;
             }
-            if (defaultHandler != null) {
-                defaultHandler.uncaughtException(thread, ex);
+            if (parent != null) {
+                parent.uncaughtException(thread, ex);
             }
-        });
+        }
     }
 
     private static void recordCrashlytics(Thread thread, Throwable ex) {
@@ -120,17 +133,22 @@ public class App extends Application implements Application.ActivityLifecycleCal
 
     private static void writeCrashLog(Thread thread, Throwable ex) {
         try {
-            java.io.File dir = App.get().getExternalFilesDir("crash");
-            if (dir == null) dir = new java.io.File(App.get().getFilesDir(), "crash");
+            android.util.Log.e("TV_CRASH", "FATAL CRASH on thread " + (thread != null ? thread.getName() : "unknown"), ex);
+            java.io.File dir = App.get() != null ? App.get().getExternalFilesDir("crash") : null;
+            if (dir == null && App.get() != null) dir = new java.io.File(App.get().getFilesDir(), "crash");
+            if (dir == null) dir = new java.io.File("/sdcard/Android/data/com.lublue.android.tv/files/crash");
             if (!dir.exists()) dir.mkdirs();
             java.io.File logFile = new java.io.File(dir, "crash.log");
             java.io.StringWriter sw = new java.io.StringWriter();
             java.io.PrintWriter pw = new java.io.PrintWriter(sw);
             pw.println("Time: " + new java.util.Date());
             pw.println("Thread: " + (thread != null ? thread.getName() : "unknown"));
+            pw.println("Device: " + android.os.Build.BRAND + " " + android.os.Build.MODEL + " (SDK " + android.os.Build.VERSION.SDK_INT + ")");
+            pw.println("CPU_ABI: " + android.os.Build.CPU_ABI + " / 64bit: " + (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M ? android.os.Process.is64Bit() : "legacy"));
             ex.printStackTrace(pw);
             com.github.catvod.utils.Path.write(logFile, sw.toString().getBytes());
-        } catch (Throwable ignored) {
+        } catch (Throwable t) {
+            android.util.Log.e("TV_CRASH", "Failed to write crash log", t);
         }
     }
 

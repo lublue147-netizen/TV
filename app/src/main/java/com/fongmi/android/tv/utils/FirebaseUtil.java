@@ -5,19 +5,18 @@ import android.os.Build;
 import android.os.Bundle;
 
 import com.fongmi.android.tv.BuildConfig;
-import com.google.firebase.analytics.FirebaseAnalytics;
 import com.google.firebase.crashlytics.FirebaseCrashlytics;
 
 public class FirebaseUtil {
 
     private static volatile boolean initialized = false;
-    private static FirebaseAnalytics analytics;
 
     public static void init(Context context) {
         if (initialized) return;
         try {
             FirebaseCrashlytics crashlytics = FirebaseCrashlytics.getInstance();
             crashlytics.setCrashlyticsCollectionEnabled(true);
+            crashlytics.sendUnsentReports();
             crashlytics.setCustomKey("app_version", BuildConfig.VERSION_NAME);
             crashlytics.setCustomKey("version_code", BuildConfig.VERSION_CODE);
             crashlytics.setCustomKey("flavor", BuildConfig.FLAVOR);
@@ -27,10 +26,6 @@ public class FirebaseUtil {
             if (Build.SUPPORTED_ABIS != null && Build.SUPPORTED_ABIS.length > 0) {
                 crashlytics.setCustomKey("cpu_abi", Build.SUPPORTED_ABIS[0]);
             }
-        } catch (Throwable ignored) {
-        }
-        try {
-            analytics = FirebaseAnalytics.getInstance(context.getApplicationContext());
         } catch (Throwable ignored) {
         }
         initialized = true;
@@ -98,10 +93,9 @@ public class FirebaseUtil {
     }
 
     public static void logEvent(String name, Bundle params) {
+        if (name == null) return;
         try {
-            if (analytics != null && name != null) {
-                analytics.logEvent(name, params);
-            }
+            FirebaseCrashlytics.getInstance().log("Event: " + name + (params != null ? " " + params.toString() : ""));
         } catch (Throwable ignored) {
         }
     }
@@ -109,12 +103,7 @@ public class FirebaseUtil {
     public static void trackScreen(String screenName) {
         if (screenName == null) return;
         try {
-            if (analytics != null) {
-                Bundle bundle = new Bundle();
-                bundle.putString(FirebaseAnalytics.Param.SCREEN_NAME, screenName);
-                bundle.putString(FirebaseAnalytics.Param.SCREEN_CLASS, screenName);
-                analytics.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW, bundle);
-            }
+            FirebaseCrashlytics.getInstance().log("Screen: " + screenName);
         } catch (Throwable ignored) {
         }
     }
