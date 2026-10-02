@@ -82,6 +82,12 @@ def build():
                 shutil.copytree(item, DIST_DIR / "bin" / item.name, dirs_exist_ok=True)
         print(f"[+] GoProxy binaries copied to dist/bin/")
 
+    # 3.2 Copy token.json if present
+    token_src = CONFIG_DIR / "token.json"
+    if token_src.exists():
+        shutil.copy2(token_src, DIST_DIR / "token.json")
+        print("[+] Netdisk token.json packaged: dist/token.json")
+
     # 4. Process aiwex.json
     aiwex_src = CONFIG_DIR / "aiwex.json"
     if aiwex_src.exists():
@@ -89,6 +95,7 @@ def build():
             aiwex_data = json.load(f)
 
         aiwex_data["spider"] = spider_url
+        aiwex_data["token"] = f"{cdn_base}/token.json"
         if live_src.exists():
             self_live = {
                 "name": "本地自建高清直播",
@@ -113,6 +120,7 @@ def build():
         with open(custom_src, "r", encoding="utf-8") as f:
             custom_data = json.load(f)
         custom_data["spider"] = spider_url
+        custom_data["token"] = f"{cdn_base}/token.json"
         with open(DIST_DIR / "custom.json", "w", encoding="utf-8") as f:
             json.dump(custom_data, f, ensure_ascii=False, indent=2)
         print(f"[+] custom.json generated ({len(custom_data.get('sites', []))} sites)")
@@ -122,7 +130,8 @@ def build():
     if acc_src.exists():
         with open(acc_src, "r", encoding="utf-8") as f:
             acc_data = json.load(f)
-        acc_data["spider"] = spider_open_url
+        acc_data["spider"] = spider_url
+        acc_data["token"] = f"{cdn_base}/token.json"
         if live_src.exists() and "lives" in acc_data and isinstance(acc_data["lives"], list):
             for l in acc_data["lives"]:
                 if l.get("url", "").startswith("./"):

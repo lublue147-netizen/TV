@@ -26,8 +26,8 @@ public class Preset {
 
     public static List<Config> getVodPresets() {
         List<Config> items = new ArrayList<>();
-        items.add(Config.create(0).url(ACCELERATED).name("🚀自建网盘极速源（Go加速）"));
-        items.add(Config.create(0).url(AIWEX).name("自建全能聚合源（aiwex 96站）"));
+        items.add(Config.create(0).url(ACCELERATED).name("🚀自建网盘极速源（Go加速·4K网盘）"));
+        items.add(Config.create(0).url(AIWEX).name("🐮自建全能聚合源（aiwex 96站）"));
         items.add(Config.create(0).url(FULL_CLEAN).name("完整聚合源（无成人）"));
         items.add(Config.create(0).url(MULTI_CLEAN).name("多仓聚合源（无成人）"));
         items.add(Config.create(0).url(COLLECT).name("影视采集源"));
