@@ -99,6 +99,32 @@ public class JarLoader {
         return false;
     }
 
+    private void fixAbiForProcess() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                boolean is64 = android.os.Process.is64Bit();
+                String abi = android.os.Build.CPU_ABI;
+                if (!is64 && abi != null && abi.contains("64")) {
+                    Field field = android.os.Build.class.getDeclaredField("CPU_ABI");
+                    field.setAccessible(true);
+                    field.set(null, "armeabi-v7a");
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private boolean isGuardReady(DexClassLoader loader) {
+        try {
+            Class<?> clz = loader.loadClass("com.github.catvod.spider.Init");
+            Method m = clz.getDeclaredMethod("loader");
+            m.setAccessible(true);
+            return m.invoke(null) != null;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     private void invokeInit(String key, DexClassLoader loader) {
         try {
             Class<?> clz = loader.loadClass("com.github.catvod.spider.Init");
@@ -106,6 +132,7 @@ public class JarLoader {
                 neutralizeWeaponizedInit(clz, loader);
                 return;
             }
+            fixAbiForProcess();
             Method method = clz.getMethod("init", Context.class);
             method.invoke(clz, SpiderContext.get());
         } catch (Throwable e) {
@@ -216,6 +243,11 @@ public class JarLoader {
                 if (loader == null) return new SpiderNull();
                 String clsName = api.startsWith("csp_") ? api.substring(4) : api;
                 Class<?> clz = loader.loadClass("com.github.catvod.spider." + clsName);
+                if (clsName.endsWith("Guard") || (clz.getSuperclass() != null && clz.getSuperclass().getName().contains("Guard"))) {
+                    if (!isGuardReady(loader)) {
+                        return new SpiderNull();
+                    }
+                }
                 Spider spider = (Spider) clz.newInstance();
                 spider.siteKey = key;
                 spider.init(SpiderContext.get(), ext);

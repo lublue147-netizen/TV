@@ -90,6 +90,7 @@ public class App extends Application implements Application.ActivityLifecycleCal
     private void installExceptionHandler() {
         Thread.UncaughtExceptionHandler defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, ex) -> {
+            writeCrashLog(thread, ex);
             if (isSpiderOrLoaderException(ex)) {
                 ex.printStackTrace();
                 return;
@@ -98,6 +99,22 @@ public class App extends Application implements Application.ActivityLifecycleCal
                 defaultHandler.uncaughtException(thread, ex);
             }
         });
+    }
+
+    private static void writeCrashLog(Thread thread, Throwable ex) {
+        try {
+            java.io.File dir = App.get().getExternalFilesDir("crash");
+            if (dir == null) dir = new java.io.File(App.get().getFilesDir(), "crash");
+            if (!dir.exists()) dir.mkdirs();
+            java.io.File logFile = new java.io.File(dir, "crash.log");
+            java.io.StringWriter sw = new java.io.StringWriter();
+            java.io.PrintWriter pw = new java.io.PrintWriter(sw);
+            pw.println("Time: " + new java.util.Date());
+            pw.println("Thread: " + (thread != null ? thread.getName() : "unknown"));
+            ex.printStackTrace(pw);
+            com.github.catvod.utils.Path.write(logFile, sw.toString().getBytes());
+        } catch (Throwable ignored) {
+        }
     }
 
     private static boolean isSpiderOrLoaderException(Throwable t) {
