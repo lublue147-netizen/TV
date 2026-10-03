@@ -133,6 +133,17 @@ jobs:
           publish_branch: gh-pages
           force_orphan: true
 
+      - name: Purge jsDelivr CDN Cache
+        run: |
+          echo "=== Purging jsDelivr CDN Cache ==="
+          REPO="${{ github.repository }}"
+          sleep 5
+          for file in accelerated.json aiwex.json custom.json index.json token.json spider.txt spider.jar index.html live/iptv.m3u; do
+            echo "Purging ${file}..."
+            curl -s "https://purge.jsdelivr.net/gh/${REPO}@gh-pages/${file}" || true
+          done
+          echo "=== jsDelivr Cache Purge Completed ==="
+
       - name: Create / Update GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
