@@ -7,7 +7,7 @@ public class QrUtil {
     public static byte[] createBmp(String text, int scale, int margin) {
         if (text == null || text.isEmpty()) return null;
         try {
-            QrCode qr = QrCode.encodeText(text, QrCode.Ecc.MEDIUM);
+            QrCode qr = QrCode.encodeText(text, Ecc.MEDIUM);
             int n = qr.size;
             int width = (n + margin * 2) * scale;
             int height = width;
