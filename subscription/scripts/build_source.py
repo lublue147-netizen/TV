@@ -21,7 +21,7 @@ GOPROXY_BIN = ROOT_DIR / "goproxy" / "bin"
 DIST_DIR = ROOT_DIR / "dist_source"
 
 def get_all_version_tags(current_tag: str):
-    tags = set(["v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4"])
+    tags = set(["v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4", "v1.0.5", "v1.0.6", "v1.0.7", "v1.0.8", "v1.0.9"])
     try:
         import subprocess
         res = subprocess.run(["git", "tag", "-l", "v*"], stdout=subprocess.PIPE, text=True)
@@ -173,6 +173,13 @@ def build():
         cdn_ver_base = f"{cdn_base}/{ver}"
         print(f"[*] Generating immutable versioned directory: dist/{ver} (Base: {cdn_ver_base})")
         generate_dist_files(ver_dir, cdn_ver_base, spider_md5, open_md5, guard_src, open_src, live_src, token_src)
+
+    # 4.1 Generate Major Version Aliases (e.g., v1.0 and 1.0 for independent permanent links)
+    for major_alias in ["v1.0", "1.0", "v1"]:
+        alias_dir = DIST_DIR / major_alias
+        cdn_alias_base = f"{cdn_base}/{major_alias}"
+        print(f"[*] Generating independent major version alias directory: dist/{major_alias} (Base: {cdn_alias_base})")
+        generate_dist_files(alias_dir, cdn_alias_base, spider_md5, open_md5, guard_src, open_src, live_src, token_src)
 
     # Create .nojekyll for GitHub Pages
     with open(DIST_DIR / ".nojekyll", "w") as f:
@@ -327,6 +334,45 @@ def build():
                     <div class="code-box mb-2">
                         <span id="url4">{pages_base}/accelerated_open.json</span>
                         <button class="btn-copy ms-2" onclick="copyText('url4')"><i class="fa-regular fa-copy me-1"></i>复制</button>
+                    </div>
+                </div>
+
+                <!-- 1.5 1.0 独立固定版本专属订阅链接 (稳定不变) -->
+                <div class="card card-custom p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h4 class="mb-0 text-white"><i class="fa-solid fa-bookmark text-success me-2"></i> ⭐ 1.0 独立固定版本专属订阅接口 (锁定 1.0 版 · 永久稳定不变)</h4>
+                        <span class="badge bg-success">1.0 独立固定版</span>
+                    </div>
+                    <p class="text-secondary small mb-3">为需要永久固定版本、不希望受后续大版本更新影响的用户特别提供，永久锁定 1.0 系列：</p>
+                    
+                    <label class="form-label text-light fw-bold">1. 🌟 1.0 独立开源极速源 (纯开源 Spider · 扫码配置 · 永久稳定 · 推荐)</label>
+                    <div class="code-box mb-3">
+                        <span id="url_v10_open">{cdn_base}/v1.0/accelerated_open.json</span>
+                        <button class="btn-copy ms-2" onclick="copyText('url_v10_open')"><i class="fa-regular fa-copy me-1"></i>复制</button>
+                    </div>
+
+                    <label class="form-label text-light fw-bold">2. 🚀 1.0 独立全功能聚合源</label>
+                    <div class="code-box mb-3">
+                        <span id="url_v10_aiw">{cdn_base}/v1.0/aiwex.json</span>
+                        <button class="btn-copy ms-2" onclick="copyText('url_v10_aiw')"><i class="fa-regular fa-copy me-1"></i>复制</button>
+                    </div>
+
+                    <label class="form-label text-light fw-bold">3. ⚡ 1.0 独立网盘极速源</label>
+                    <div class="code-box mb-3">
+                        <span id="url_v10_acc">{cdn_base}/v1.0/accelerated.json</span>
+                        <button class="btn-copy ms-2" onclick="copyText('url_v10_acc')"><i class="fa-regular fa-copy me-1"></i>复制</button>
+                    </div>
+
+                    <label class="form-label text-light fw-bold">4. 🌐 1.0 独立精简核心源</label>
+                    <div class="code-box mb-3">
+                        <span id="url_v10_cus">{cdn_base}/v1.0/custom.json</span>
+                        <button class="btn-copy ms-2" onclick="copyText('url_v10_cus')"><i class="fa-regular fa-copy me-1"></i>复制</button>
+                    </div>
+
+                    <label class="form-label text-light fw-bold">5. 📡 1.0 GitHub Pages 官方线路</label>
+                    <div class="code-box mb-2">
+                        <span id="url_v10_pages">{pages_base}/v1.0/accelerated_open.json</span>
+                        <button class="btn-copy ms-2" onclick="copyText('url_v10_pages')"><i class="fa-regular fa-copy me-1"></i>复制</button>
                     </div>
                 </div>
 

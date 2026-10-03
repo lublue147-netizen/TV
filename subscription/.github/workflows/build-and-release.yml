@@ -182,6 +182,8 @@ jobs:
             curl -s "https://purge.jsdelivr.net/gh/${REPO}@gh-pages/${file}" || true
             echo "Purging ${TAG}/${file}..."
             curl -s "https://purge.jsdelivr.net/gh/${REPO}@gh-pages/${TAG}/${file}" || true
+            echo "Purging v1.0/${file}..."
+            curl -s "https://purge.jsdelivr.net/gh/${REPO}@gh-pages/v1.0/${file}" || true
           done
           echo "=== jsDelivr Cache Purge Completed ==="
 
@@ -193,6 +195,13 @@ jobs:
           name: TVBox / FongMi 影视源与 GoProxy 网盘加速器 ${{ env.RELEASE_TAG }} 正式版
           body: |
             ### 🚀 TVBox / FongMi 影视源与网盘加速代理 ${{ env.RELEASE_TAG }} 正式版发布
+
+            #### ⭐ 1.0 独立固定版本专属订阅链接 (永久锁定 1.0 版 · 稳定不随更新变动)：
+            - **开源原生极速源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/v1.0/accelerated_open.json`
+            - **全功能聚合源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/v1.0/aiwex.json`
+            - **网盘加速极速源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/v1.0/accelerated.json`
+            - **精简核心源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/v1.0/custom.json`
+            - **GitHub Pages 线路**: `https://${{ github.repository_owner }}.github.io/subscription/v1.0/accelerated_open.json`
 
             #### 📌 本版本专属固定订阅链接 (多版本共存 · 永久有效不随更新变更)：
             - **开源原生极速源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/${{ env.RELEASE_TAG }}/accelerated_open.json`
