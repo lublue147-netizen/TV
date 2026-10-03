@@ -64,6 +64,35 @@ public class QrUtil {
         }
     }
 
+    public static android.graphics.Bitmap createBitmap(String text, int size) {
+        if (text == null || text.isEmpty()) return null;
+        try {
+            QrCode qr = QrCode.encodeText(text, Ecc.MEDIUM);
+            int n = qr.size;
+            int margin = 1;
+            int total = n + margin * 2;
+            int scale = Math.max(1, size / total);
+            int width = total * scale;
+            int height = width;
+            int[] pixels = new int[width * height];
+            for (int y = 0; y < height; y++) {
+                int my = (y / scale) - margin;
+                for (int x = 0; x < width; x++) {
+                    int mx = (x / scale) - margin;
+                    boolean isDark = false;
+                    if (my >= 0 && my < n && mx >= 0 && mx < n) {
+                        isDark = qr.getModule(mx, my);
+                    }
+                    pixels[y * width + x] = isDark ? 0xFF000000 : 0xFFFFFFFF;
+                }
+            }
+            return android.graphics.Bitmap.createBitmap(pixels, width, height, android.graphics.Bitmap.Config.ARGB_8888);
+        } catch (Throwable t) {
+            t.printStackTrace();
+            return null;
+        }
+    }
+
     public static String createDataUri(String text) {
         byte[] bmp = createBmp(text, 6, 2);
         if (bmp != null) {
