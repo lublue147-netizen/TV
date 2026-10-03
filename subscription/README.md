@@ -1,6 +1,10 @@
 # 📺 TVBox / FongMi 影视源与网盘加速代理独立发布中心
 
-本项目是针对 **TVBox** 与 **FongMi TV** 打造的独立影视订阅源与网盘播放加速发布中心。集成全能影视源、模块化精简源、网盘极速源、开源 Java Spider 爬虫、以及高性能 **Go / SO 网盘并发加速代理引擎 (GoProxy)**。
+[![Version](https://img.shields.io/badge/Release-v1.0.0%20Official-blue.svg)](https://github.com/lublue147-netizen/subscription/releases/tag/v1.0.0)
+[![CI/CD](https://github.com/lublue147-netizen/subscription/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/lublue147-netizen/subscription/actions/workflows/build-and-release.yml)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
+
+本项目是针对 **TVBox** 与 **FongMi TV** 打造的独立影视订阅源与网盘播放加速发布中心（**v1.0.0 正式版**）。集成全能影视源、模块化精简源、网盘极速源、开源 Java Spider 爬虫、以及高性能 **Go / SO 网盘并发加速代理引擎 (GoProxy)**。
 
 所有组件的编译、DEX 打包、跨平台编译、MD5 校验及全球 CDN 部署均通过 **GitHub Actions** 自动化完成，无需在本地安装配置任何开发环境。
 
@@ -8,19 +12,20 @@
 
 ## ⚡ 核心功能与亮点
 
-1. **自主独立发布**: 
+1. **自主独立发布 (v1.0.0 正式版)**: 
    - 具备专属独立 GitHub 仓库与独立的 GitHub Actions CI/CD 流水线。
    - 自动推送到 `gh-pages` 分支并创建 GitHub Releases，提供全球 CDN 与官方线路。
 2. **Go / SO 网盘播放并发加速代理 (GoProxy)**:
    - 针对**夸克网盘、阿里云盘、115网盘、百度网盘、AList、WebDAV**等网盘播放，突破单线程限速。
    - **多线程 Range 分块并发预加载**：将视频流切分为 2MB/4MB 块，后台多协程预取并缓存至高速内存环形队列，ExoPlayer 拖动进度条即刻秒播。
    - 提供 **Android ARM64 / ARMv7 独立进程**、**JNI `.so` 动态库**（`libgoproxy.so`）及 **Java 纯流代理后备机制**。
-3. **全开源 Spider 爬虫支持**:
+3. **全开源 Spider 爬虫支持 (spider_open.jar)**:
    - 包含完整的 Java Spider 源码工程（`spider_source/`），CI 流水线使用 Android `d8` 自动转为 `classes.dex` 并打包成 `spider_open.jar`。
-   - 内置 `GoProxy` 自动桥接与 `Proxy.java` 代理路由。
+   - 内置纯离线二维码生成、扫码授权后台自动轮询、局域网 Web 控制台（9979端口）与千万级 PanSearch 多网盘秒搜。
 4. **多形态订阅接口**:
    - **全功能聚合源 (`aiwex.json`)**：96 个全能站点、4 条 VIP 解析、高清直播与安全 DoH。
    - **网盘极速源 (`accelerated.json`)**：专为 Go/SO 网盘加速设计的纯净 4K 与 AList 线路。
+   - **开源原生极速源 (`accelerated_open.json`)**：100% 使用开源 spider_open.jar，支持扫码配置与分集解析。
    - **精简核心源 (`custom.json`)**：精选 17 个高可用核心站点。
 
 ---
@@ -33,6 +38,7 @@
 | :--- | :--- | :--- |
 | 🚀 **全功能聚合源 (jsDelivr CDN)** | `https://cdn.jsdelivr.net/gh/lublue147-netizen/subscription@gh-pages/aiwex.json` | 96 站点全能源，国内秒级加载 |
 | ⚡ **网盘加速极速源 (Go/SO 预加载)** | `https://cdn.jsdelivr.net/gh/lublue147-netizen/subscription@gh-pages/accelerated.json` | 配合 GoProxy / 纯 Java 预拉取加速 |
+| 🌟 **开源原生极速源 (纯开源 Spider)** | `https://cdn.jsdelivr.net/gh/lublue147-netizen/subscription@gh-pages/accelerated_open.json` | 100% 开源 Spider，扫码自动配置+千万级秒搜 |
 | 🌐 **精简核心源 (17 站点)** | `https://cdn.jsdelivr.net/gh/lublue147-netizen/subscription@gh-pages/custom.json` | 纯净精简，启动加载快 |
 | 📡 **GitHub Pages 官方线路** | `https://lublue147-netizen.github.io/subscription/aiwex.json` | 实时更新线路 |
 | 📺 **电视直播源 (IPTV M3U)** | `https://cdn.jsdelivr.net/gh/lublue147-netizen/subscription@gh-pages/live/iptv.m3u` | 央视卫视高清直播流 |

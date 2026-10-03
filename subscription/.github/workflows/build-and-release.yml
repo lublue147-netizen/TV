@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - master
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -148,17 +150,23 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         with:
-          tag_name: latest
-          name: "TVBox / FongMi 影视源与 GoProxy 网盘加速器 Latest Release"
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && format('TVBox / FongMi 影视源与 GoProxy 网盘加速器 {0} 正式版', github.ref_name) || 'TVBox / FongMi 影视源与 GoProxy 网盘加速器 v1.0.0 正式版' }}
           body: |
-            ### 🚀 TVBox / FongMi 影视源与网盘加速代理最新构建产物
+            ### 🚀 TVBox / FongMi 影视源与网盘加速代理 v1.0.0 正式版发布
             - **全功能聚合源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/aiwex.json`
             - **网盘加速极速源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/accelerated.json`
+            - **开源原生极速源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/accelerated_open.json`
             - **精简核心源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/custom.json`
             - **直播源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/live/iptv.m3u`
 
+            #### 🌟 v1.0.0 核心特性：
+            - **Go / SO 网盘并发加速引擎 (GoProxy)**: 针对夸克、阿里、115等网盘多协程 Range 并发分块预加载，秒播 4K 蓝光高码率原盘。
+            - **100% 纯 Java 开源 Spider (spider_open.jar)**: 内置纯本地离线扫码二维码生成引擎、后台自动轮询登录、局域网 Web 控制台 (9979端口) 以及千万级 PanSearch 多网盘秒搜。
+            - **全自动 CI/CD 构建发布**: GitHub Actions 自动交叉编译 Go/SO、Android D8 转 DEX，一键同步部署 GitHub Pages、Releases 与 jsDelivr CDN。
+
             #### 包含附件：
-            - `spider_open.jar`: 包含自研网盘加速桥接器与开源爬虫
+            - `spider_open.jar`: 纯开源网盘扫码配置与 4K 秒搜爬虫 (DEX 打包)
             - `goproxy-android-arm64`: 适用于 Android 64位智能电视盒子的后台加速守护进程
             - `goproxy-android-armv7`: 适用于 32位老款盒子的后台加速守护进程
             - `libgoproxy.so`: Android JNI 原生动态链接库

@@ -60,10 +60,10 @@ subscription/spider_source/
 
 ---
 
-## 三、GitHub Actions 全自动编译发布流程
+## 三、GitHub Actions 全自动编译发布流程 (v1.0.0)
 
-在 [`.github/workflows/deploy-source.yml`](../../.github/workflows/deploy-source.yml) 中已配置好云端 CI：
-1. **源码编译**：使用 `javac -source 17 -target 17` 将全部 94 个 Java 源文件编译为字节码。
-2. **D8 Dex 优化**：调用 Android SDK `d8` 转换为 Android 虚拟机高兼容性 `classes.dex`。
-3. **打包分发**：封装为 `spider_open.jar`，同时支持与闭源 `spider.jar` 并行发布。
+在 [`.github/workflows/build-and-release.yml`](../.github/workflows/build-and-release.yml) 中已配置好云端 CI：
+1. **源码编译**：使用 `javac -source 8 -target 8` 将全部 Java 源文件编译为高兼容性字节码。
+2. **D8 Dex 优化**：调用 Android SDK `d8 --min-api 21` 转换为 Android 虚拟机兼容的 `classes.dex`。
+3. **打包分发**：封装为 `spider_open.jar` 与 `spider_open.txt`，同时支持与全量 `spider.jar` 并行发布。
 4. **全球 CDN 缓存自动刷新**：发布至 `gh-pages` 分支并触发全球 jsDelivr 缓存刷新。

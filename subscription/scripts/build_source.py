@@ -220,9 +220,10 @@ def build():
 <body>
     <div class="container">
         <div class="hero">
-            <h1 class="display-5 fw-bold mb-3"><i class="fa-solid fa-tv text-primary me-2"></i> 自建 TVBox / FongMi 影视源与网盘加速</h1>
+            <h1 class="display-5 fw-bold mb-3"><i class="fa-solid fa-tv text-primary me-2"></i> TVBox / FongMi 影视源与网盘加速 <span class="badge bg-primary fs-6 align-middle">v1.0.0 正式版</span></h1>
             <p class="lead text-light opacity-75">全能聚合影视源 + Go/SO 网盘播放多线程加速引擎，秒播 4K、零缓冲体验</p>
             <div class="mt-3">
+                <span class="badge-stat"><i class="fa-solid fa-tag me-1"></i> Release v1.0.0</span>
                 <span class="badge-stat"><i class="fa-solid fa-film me-1"></i> 全能源 96 个站点</span>
                 <span class="badge-stat"><i class="fa-solid fa-bolt me-1"></i> 网盘 Range 多线程预加载</span>
                 <span class="badge-stat"><i class="fa-solid fa-microchip me-1"></i> Go / SO 跨平台加速</span>
