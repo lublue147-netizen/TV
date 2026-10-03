@@ -11,6 +11,7 @@ import com.github.catvod.crawler.Spider;
 import com.github.catvod.proxy.GoProxy;
 import com.github.catvod.utils.NotifyToast;
 import com.github.catvod.utils.OkHttp;
+import com.github.catvod.utils.SpiderFirebaseLogger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -711,6 +712,7 @@ public class Wogg extends Spider {
 
     @Override
     public String playerContent(String flag, String id, List<String> vipFlags) throws Exception {
+        SpiderFirebaseLogger.log(String.format("Wogg.playerContent START: flag=%s, id=%s", flag, id));
         if (id.startsWith("baidu_") || (flag != null && flag.contains("百度"))) {
             return BaiduApi.get().getPlayerContent(flag, id).toString();
         } else if (id.startsWith("uc::") || (flag != null && flag.contains("UC"))) {
@@ -780,21 +782,28 @@ public class Wogg extends Spider {
         }
 
         if (rawStreamUrl.isEmpty() || !rawStreamUrl.startsWith("http")) {
+            String errorMsg;
             if (id.startsWith("quark::")) {
                 if (!QuarkApi.get().hasCookie()) {
-                    NotifyToast.show("请在【配置中心】扫码配置夸克网盘，或切换【百度原画】播放");
+                    errorMsg = "请在【配置中心】扫码配置夸克网盘，或切换【百度原画】播放";
                 } else {
-                    NotifyToast.show("夸克网盘解析失败，可切换【百度原画】线路播放");
+                    errorMsg = "夸克网盘解析失败，可切换【百度原画】线路播放";
                 }
             } else if (id.startsWith("ali::")) {
-                NotifyToast.show("阿里云盘解析失败，请在【配置中心】检查配置");
+                errorMsg = "阿里云盘解析失败，请在【配置中心】检查配置";
+            } else {
+                errorMsg = "视频解析失败，请切换其他线路播放";
             }
+            NotifyToast.show(errorMsg);
+            SpiderFirebaseLogger.recordPlaybackError("Wogg", flag, id, "wogg_rawStreamUrl_empty: " + errorMsg, null);
             result.put("url", "");
+            result.put("msg", errorMsg);
             return result.toString();
         }
 
         // 通过 GoProxy 乱序并发 Range 预取切片进行流媒体加速
         String proxyUrl = GoProxy.wrap(rawStreamUrl, headers);
+        SpiderFirebaseLogger.log(String.format("Wogg.playerContent SUCCESS: flag=%s, proxyUrl=%s", flag, proxyUrl));
         result.put("url", proxyUrl);
         JSONObject hObj = new JSONObject();
         for (Map.Entry<String, String> entry : headers.entrySet()) {

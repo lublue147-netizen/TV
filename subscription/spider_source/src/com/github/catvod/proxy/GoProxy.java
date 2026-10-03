@@ -6,6 +6,7 @@ import android.util.Log;
 
 import com.github.catvod.spider.Init;
 import com.github.catvod.utils.OkHttp;
+import com.github.catvod.utils.SpiderFirebaseLogger;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -175,7 +176,9 @@ public class GoProxy {
         if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
             return "";
         }
-        if (isAlive()) {
+        boolean alive = isAlive();
+        SpiderFirebaseLogger.log(String.format("GoProxy.wrap: alive=%b, port=%d", alive, getPort()));
+        if (alive) {
             return getAcceleratedUrl(rawUrl, headers);
         }
         return rawUrl;

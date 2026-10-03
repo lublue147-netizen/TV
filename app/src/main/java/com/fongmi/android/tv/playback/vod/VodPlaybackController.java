@@ -11,7 +11,10 @@ import com.fongmi.android.tv.bean.Keep;
 import com.fongmi.android.tv.bean.Parse;
 import com.fongmi.android.tv.bean.Result;
 import com.fongmi.android.tv.bean.Vod;
+import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.playback.PlaybackResult;
+import com.fongmi.android.tv.utils.FirebaseUtil;
+import com.fongmi.android.tv.utils.ResUtil;
 
 import java.util.Collections;
 import java.util.List;
@@ -115,7 +118,12 @@ public class VodPlaybackController {
         if (episode == null) return;
         applyPlaybackState(result, request);
         renderPlaybackResult(result);
-        if (result.getUrl().isEmpty()) return;
+        if (result.getUrl().isEmpty()) {
+            String errorMsg = result.hasMsg() ? result.getMsg() : ResUtil.getString(R.string.error_play_url);
+            FirebaseUtil.recordPlaybackError(request.getKey(), request.getFlag(), request.getId(), "controller_empty_url: " + errorMsg, null);
+            playbackError(errorMsg);
+            return;
+        }
         updatePlaybackPosition(result);
         host.loadDanmaku(result, state.getHistory(), episode);
         startPlayback(result, startPositionMs(), episode);
@@ -235,6 +243,7 @@ public class VodPlaybackController {
     }
 
     public void playbackError(String msg) {
+        FirebaseUtil.recordPlaybackError(host.getVodKey(), state.getFlag() != null ? state.getFlag().getFlag() : "", "", "playbackError_invoked: " + msg, null);
         preloader.clear();
         host.resetPlaybackForError(msg);
         fallbackPolicy.playbackError();

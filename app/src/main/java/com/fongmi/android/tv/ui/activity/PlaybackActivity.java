@@ -40,6 +40,7 @@ import com.fongmi.android.tv.setting.DanmakuSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.SubtitleSetting;
 import com.fongmi.android.tv.ui.base.BaseActivity;
+import com.fongmi.android.tv.utils.FirebaseUtil;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.github.catvod.net.OkHttp;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -214,6 +215,8 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     }
 
     protected void onError(String msg) {
+        FirebaseUtil.setCustomKey("playback_activity_last_error", msg != null ? msg : "");
+        FirebaseUtil.recordPlaybackError("", "", "", "PlaybackActivity.onError: " + msg, null);
     }
 
     protected void onPlayingChanged(boolean isPlaying) {
@@ -247,16 +250,30 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     }
 
     protected void startPlayer(String key, Result result, boolean useParse, long timeout, long startPositionMs, MediaMetadata metadata) {
-        String error = getPlaybackError(result);
+        FirebaseUtil.log(String.format("PlaybackActivity.startPlayer: key=%s, realUrl=%s, useParse=%b", key, result != null ? result.getRealUrl() : "null", useParse));
+        String error = getPlaybackError(key, result);
         if (error != null) onError(error);
         else startPlayerInternal(key, result, useParse, timeout, startPositionMs, metadata);
     }
 
     @Nullable
-    private String getPlaybackError(Result result) {
-        if (result.hasMsg()) return result.getMsg();
-        if (result.getRealUrl().isEmpty()) return ResUtil.getString(R.string.error_play_url);
-        if (result.getDrm() != null && !FrameworkMediaDrm.isCryptoSchemeSupported(result.getDrm().getUUID())) return ResUtil.getString(R.string.error_play_drm);
+    private String getPlaybackError(String key, Result result) {
+        if (result == null) {
+            FirebaseUtil.recordPlaybackError(key, "", "", "null_result_in_getPlaybackError", null);
+            return ResUtil.getString(R.string.error_play_url);
+        }
+        if (result.hasMsg()) {
+            FirebaseUtil.recordPlaybackError(key, result.getFlag(), result.getRealUrl(), "hasMsg: " + result.getMsg(), null);
+            return result.getMsg();
+        }
+        if (result.getRealUrl().isEmpty()) {
+            FirebaseUtil.recordPlaybackError(key, result.getFlag(), "", "real_url_empty_in_getPlaybackError", null);
+            return ResUtil.getString(R.string.error_play_url);
+        }
+        if (result.getDrm() != null && !FrameworkMediaDrm.isCryptoSchemeSupported(result.getDrm().getUUID())) {
+            FirebaseUtil.recordPlaybackError(key, result.getFlag(), result.getRealUrl(), "drm_unsupported", null);
+            return ResUtil.getString(R.string.error_play_drm);
+        }
         return null;
     }
 

@@ -100,6 +100,42 @@ public class FirebaseUtil {
         }
     }
 
+    public static class PlaybackDiagnoseException extends Exception {
+        public PlaybackDiagnoseException(String message) {
+            super(message);
+        }
+
+        public PlaybackDiagnoseException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    public static void recordPlaybackError(String siteKey, String flag, String urlOrId, String stage, Throwable throwable) {
+        try {
+            FirebaseCrashlytics crashlytics = FirebaseCrashlytics.getInstance();
+            if (siteKey != null && !siteKey.isEmpty()) crashlytics.setCustomKey("play_site", siteKey);
+            if (flag != null && !flag.isEmpty()) crashlytics.setCustomKey("play_flag", flag);
+            if (urlOrId != null && !urlOrId.isEmpty()) {
+                String safeUrl = urlOrId.length() > 500 ? urlOrId.substring(0, 500) : urlOrId;
+                crashlytics.setCustomKey("play_url_or_id", safeUrl);
+            }
+            if (stage != null) crashlytics.setCustomKey("play_error_stage", stage);
+            String logMsg = String.format("PlaybackError: site=%s, flag=%s, stage=%s, target=%s", 
+                    siteKey != null ? siteKey : "unknown", 
+                    flag != null ? flag : "none", 
+                    stage != null ? stage : "unknown",
+                    urlOrId != null ? (urlOrId.length() > 100 ? urlOrId.substring(0, 100) + "..." : urlOrId) : "empty");
+            crashlytics.log(logMsg);
+            if (throwable != null) {
+                crashlytics.recordException(new PlaybackDiagnoseException(logMsg, throwable));
+            } else {
+                crashlytics.recordException(new PlaybackDiagnoseException(logMsg));
+            }
+            crashlytics.sendUnsentReports();
+        } catch (Throwable ignored) {
+        }
+    }
+
     public static void trackScreen(String screenName) {
         if (screenName == null) return;
         try {

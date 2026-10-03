@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import com.github.catvod.spider.Init;
 import com.github.catvod.utils.OkHttp;
+import com.github.catvod.utils.SpiderFirebaseLogger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -318,13 +319,16 @@ public class QuarkApi {
 
     public String getPlayUrl(String shareId, String stoken, String fid, String shareFidToken, String pdirFid) {
         if (!hasCookie()) {
+            SpiderFirebaseLogger.log("QuarkApi.getPlayUrl: NO_COOKIE");
             return "";
         }
 
         try {
+            SpiderFirebaseLogger.log(String.format("QuarkApi.getPlayUrl START: shareId=%s, fid=%s", shareId, fid));
             // 1. 保存到个人云盘临时 TV 目录
             String userFid = saveToTemp(shareId, stoken, fid, shareFidToken, pdirFid);
             if (userFid == null || userFid.isEmpty()) {
+                SpiderFirebaseLogger.log("QuarkApi.getPlayUrl: saveToTemp failed, userFid is empty");
                 return "";
             }
 
@@ -341,7 +345,10 @@ public class QuarkApi {
                 JSONArray arr = downJson.getJSONArray("data");
                 if (arr.length() > 0) {
                     String durl = arr.getJSONObject(0).optString("download_url");
-                    if (!durl.isEmpty()) return durl;
+                    if (!durl.isEmpty()) {
+                        SpiderFirebaseLogger.log("QuarkApi.getPlayUrl: Got 4K download_url");
+                        return durl;
+                    }
                 }
             }
 
@@ -357,11 +364,16 @@ public class QuarkApi {
             if (playJson.has("data") && playJson.getJSONObject("data").has("video_list")) {
                 JSONArray vList = playJson.getJSONObject("data").getJSONArray("video_list");
                 if (vList.length() > 0) {
-                    return vList.getJSONObject(0).getJSONObject("video_info").optString("url");
+                    String vUrl = vList.getJSONObject(0).getJSONObject("video_info").optString("url");
+                    if (!vUrl.isEmpty()) {
+                        SpiderFirebaseLogger.log("QuarkApi.getPlayUrl: Got transcode stream url");
+                        return vUrl;
+                    }
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
+            SpiderFirebaseLogger.recordPlaybackError("QuarkApi", "", shareId + "::" + fid, "quark_getPlayUrl_exception", e);
         }
         return "";
     }
@@ -386,6 +398,7 @@ public class QuarkApi {
         saveBody.put("scene", "link");
 
         String saveRes = OkHttp.postJson(saveUrl, saveBody.toString(), getHeaders());
+        SpiderFirebaseLogger.log(String.format("QuarkApi.saveToTemp res: %s", saveRes != null && saveRes.length() > 200 ? saveRes.substring(0, 200) : saveRes));
         JSONObject saveJson = new JSONObject(saveRes);
         if (saveJson.has("data")) {
             JSONObject dataObj = saveJson.getJSONObject("data");

@@ -13,6 +13,7 @@ import com.fongmi.android.tv.bean.Result;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.player.extractor.Source;
+import com.fongmi.android.tv.utils.FirebaseUtil;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Sniffer;
 import com.github.catvod.crawler.Spider;
@@ -142,49 +143,68 @@ public class SiteApi {
     @NonNull
     public static Result playerContent(@NonNull String key, @NonNull String flag, @NonNull String id) throws Exception {
         SpiderDebug.log("player", "key=%s,flag=%s,id=%s", key, flag, id);
+        FirebaseUtil.log(String.format("SiteApi.playerContent START: site=%s, flag=%s, id=%s", key, flag, id));
+        FirebaseUtil.setCustomKey("current_play_site", key);
+        FirebaseUtil.setCustomKey("current_play_flag", flag);
+        FirebaseUtil.setCustomKey("current_play_id", id.length() > 500 ? id.substring(0, 500) : id);
         Site site = VodConfig.get().getSite(key);
         Source.get().stop();
-        if (site.getType() == 3) {
-            String playerContent = site.recent().spider().playerContent(flag, id, VodConfig.get().getFlags());
-            SpiderDebug.log("player", playerContent);
-            Result result = Result.fromJson(playerContent);
-            if (result.getFlag().isEmpty()) result.setFlag(flag);
-            result.setUrl(Source.get().fetch(result));
-            result.setHeader(site.getHeader());
-            result.setKey(key);
+        Result result;
+        try {
+            if (site.getType() == 3) {
+                String playerContent = site.recent().spider().playerContent(flag, id, VodConfig.get().getFlags());
+                SpiderDebug.log("player", playerContent);
+                FirebaseUtil.log(String.format("SiteApi.playerContent SPIDER_RAW: site=%s, flag=%s, len=%d, body=%s", 
+                        key, flag, playerContent != null ? playerContent.length() : 0, 
+                        playerContent != null ? (playerContent.length() > 200 ? playerContent.substring(0, 200) + "..." : playerContent) : "null"));
+                result = Result.fromJson(playerContent);
+                if (result.getFlag().isEmpty()) result.setFlag(flag);
+                result.setUrl(Source.get().fetch(result));
+                result.setHeader(site.getHeader());
+                result.setKey(key);
+            } else if (site.getType() == 4) {
+                ArrayMap<String, String> params = new ArrayMap<>();
+                params.put("play", id);
+                params.put("flag", flag);
+                String playerContent = call(site, params);
+                SpiderDebug.log("player", playerContent);
+                FirebaseUtil.log(String.format("SiteApi.playerContent TYPE4_RAW: site=%s, flag=%s, len=%d", key, flag, playerContent != null ? playerContent.length() : 0));
+                result = Result.fromJson(playerContent);
+                if (result.getFlag().isEmpty()) result.setFlag(flag);
+                result.setUrl(Source.get().fetch(result));
+                result.setHeader(site.getHeader());
+                result.setKey(key);
+            } else if (site.isEmpty() && "push_agent".equals(key)) {
+                result = new Result();
+                result.setUrl(id);
+                result.setKey(key);
+                result.setParse(0);
+                result.setFlag(flag);
+                result.setUrl(Source.get().fetch(result));
+                SpiderDebug.log("player", result.toString());
+            } else {
+                result = new Result();
+                result.setUrl(id);
+                result.setKey(key);
+                result.setFlag(flag);
+                result.setHeader(site.getHeader());
+                result.setPlayUrl(site.getPlayUrl());
+                result.setParse(Sniffer.isVideoFormat(id) && result.getPlayUrl().isEmpty() ? 0 : 1);
+                result.setUrl(Source.get().fetch(result));
+                SpiderDebug.log("player", result.toString());
+            }
+
+            if (result.getRealUrl().isEmpty()) {
+                String errorReason = result.hasMsg() ? result.getMsg() : "empty_real_url";
+                FirebaseUtil.recordPlaybackError(key, flag, id, "site_api_empty_url: " + errorReason, 
+                        new Exception("SiteApi resolved empty URL. msg=" + result.getMsg() + ", flag=" + flag + ", id=" + id));
+            } else {
+                FirebaseUtil.log(String.format("SiteApi.playerContent SUCCESS: site=%s, flag=%s, realUrl=%s", key, flag, result.getRealUrl()));
+            }
             return result;
-        } else if (site.getType() == 4) {
-            ArrayMap<String, String> params = new ArrayMap<>();
-            params.put("play", id);
-            params.put("flag", flag);
-            String playerContent = call(site, params);
-            SpiderDebug.log("player", playerContent);
-            Result result = Result.fromJson(playerContent);
-            if (result.getFlag().isEmpty()) result.setFlag(flag);
-            result.setUrl(Source.get().fetch(result));
-            result.setHeader(site.getHeader());
-            result.setKey(key);
-            return result;
-        } else if (site.isEmpty() && "push_agent".equals(key)) {
-            Result result = new Result();
-            result.setUrl(id);
-            result.setKey(key);
-            result.setParse(0);
-            result.setFlag(flag);
-            result.setUrl(Source.get().fetch(result));
-            SpiderDebug.log("player", result.toString());
-            return result;
-        } else {
-            Result result = new Result();
-            result.setUrl(id);
-            result.setKey(key);
-            result.setFlag(flag);
-            result.setHeader(site.getHeader());
-            result.setPlayUrl(site.getPlayUrl());
-            result.setParse(Sniffer.isVideoFormat(id) && result.getPlayUrl().isEmpty() ? 0 : 1);
-            result.setUrl(Source.get().fetch(result));
-            SpiderDebug.log("player", result.toString());
-            return result;
+        } catch (Exception e) {
+            FirebaseUtil.recordPlaybackError(key, flag, id, "site_api_exception", e);
+            throw e;
         }
     }
 

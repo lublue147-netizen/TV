@@ -4,6 +4,7 @@ import com.github.catvod.proxy.GoProxy;
 import com.github.catvod.spider.Init;
 import com.github.catvod.utils.NotifyToast;
 import com.github.catvod.utils.OkHttp;
+import com.github.catvod.utils.SpiderFirebaseLogger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -539,13 +540,18 @@ public class BaiduApi {
             } catch (Exception ignored) {}
         }
 
+        SpiderFirebaseLogger.log(String.format("BaiduApi.getPlayerContent: flag=%s, directUrl=%s", flag, directUrl.length() > 50 ? directUrl.substring(0, 50) + "..." : directUrl));
         if (directUrl.isEmpty() || !directUrl.startsWith("http") || directUrl.contains("pan.baidu.com/s/")) {
+            String errorMsg;
             if (userCookie.isEmpty()) {
-                NotifyToast.show("请在【配置中心】配置百度网盘Cookie (BDUSS) 后播放");
+                errorMsg = "请在【配置中心】配置百度网盘Cookie (BDUSS) 后播放";
             } else {
-                NotifyToast.show("百度网盘直链解析失败，该资源可能已被限制");
+                errorMsg = "百度网盘直链解析失败，该资源可能已被限制";
             }
+            NotifyToast.show(errorMsg);
+            SpiderFirebaseLogger.recordPlaybackError("BaiduApi", flag, playParam, "baidu_directUrl_empty: " + errorMsg, null);
             result.put("url", "");
+            result.put("msg", errorMsg);
             return result;
         }
 

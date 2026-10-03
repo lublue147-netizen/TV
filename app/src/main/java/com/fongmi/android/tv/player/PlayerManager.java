@@ -494,6 +494,7 @@ public class PlayerManager implements ParseCallback {
     }
 
     private void onPlayTimeout() {
+        FirebaseUtil.recordPlaybackError(spec != null ? spec.getKey() : "", "", spec != null ? spec.getUrl() : "", "exo_play_timeout", null);
         callback.onError(ResUtil.getString(R.string.error_play_timeout));
         stop();
     }
@@ -601,6 +602,7 @@ public class PlayerManager implements ParseCallback {
     @Override
     public void onParseError() {
         pendingStartPositionMs = C.TIME_UNSET;
+        FirebaseUtil.recordPlaybackError(spec != null ? spec.getKey() : "", "", spec != null ? spec.getUrl() : "", "parse_error", null);
         callback.onError(ResUtil.getString(R.string.error_play_parse));
     }
 
@@ -691,7 +693,11 @@ public class PlayerManager implements ParseCallback {
                 case FATAL -> {
                     FirebaseUtil.setCustomKey("playback_error_code", e.errorCode);
                     FirebaseUtil.setCustomKey("playback_error_name", e.getErrorCodeName());
-                    FirebaseUtil.recordException("playback_fatal", e);
+                    if (spec != null) {
+                        FirebaseUtil.setCustomKey("playback_error_url", spec.getUrl() != null ? spec.getUrl() : "");
+                        FirebaseUtil.setCustomKey("playback_error_key", spec.getKey() != null ? spec.getKey() : "");
+                    }
+                    FirebaseUtil.recordPlaybackError(spec != null ? spec.getKey() : "", "", spec != null ? spec.getUrl() : "", "exo_fatal: " + e.getErrorCodeName(), e);
                     callback.onError(engine.getErrorMessage(e));
                 }
             }

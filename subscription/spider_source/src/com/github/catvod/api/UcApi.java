@@ -3,6 +3,7 @@ package com.github.catvod.api;
 import com.github.catvod.proxy.GoProxy;
 import com.github.catvod.utils.NotifyToast;
 import com.github.catvod.utils.OkHttp;
+import com.github.catvod.utils.SpiderFirebaseLogger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -193,12 +194,16 @@ public class UcApi {
         }
 
         if (downloadUrl.isEmpty() || !downloadUrl.startsWith("http") || downloadUrl.contains("drive.uc.cn/s/")) {
+            String errorMsg;
             if (cookieStr.isEmpty()) {
-                NotifyToast.show("请在【配置中心】扫码或输入UC网盘Cookie后播放");
+                errorMsg = "请在【配置中心】扫码或输入UC网盘Cookie后播放";
             } else {
-                NotifyToast.show("UC网盘直链解析失败，该资源可能已被限制");
+                errorMsg = "UC网盘直链解析失败，该资源可能已被限制";
             }
+            NotifyToast.show(errorMsg);
+            SpiderFirebaseLogger.recordPlaybackError("UcApi", "", playParam, "uc_downloadUrl_empty: " + errorMsg, null);
             result.put("url", "");
+            result.put("msg", errorMsg);
             return result;
         }
 

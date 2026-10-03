@@ -107,11 +107,18 @@ public class SafeSpider extends Spider {
 
     @Override
     public String playerContent(String flag, String id, List<String> vipFlags) {
+        long start = System.currentTimeMillis();
         try {
-            return delegate.playerContent(flag, id, vipFlags);
+            String res = delegate.playerContent(flag, id, vipFlags);
+            long cost = System.currentTimeMillis() - start;
+            FirebaseUtil.log(String.format("SafeSpider [%s] playerContent flag=%s, cost=%dms, resLen=%d", siteKey, flag, cost, res != null ? res.length() : 0));
+            if (res == null || res.trim().isEmpty() || res.contains("\"url\":\"\"") || res.contains("\"url\": \"\"")) {
+                FirebaseUtil.recordSpiderError(siteKey, "playerContent_empty", new Exception("Spider returned empty URL for flag=" + flag + ", id=" + id + ", res=" + res));
+            }
+            return res != null ? res : "";
         } catch (Throwable t) {
             t.printStackTrace();
-            FirebaseUtil.recordSpiderError(siteKey, "playerContent", t);
+            FirebaseUtil.recordSpiderError(siteKey, "playerContent_exception", t);
             return "";
         }
     }
