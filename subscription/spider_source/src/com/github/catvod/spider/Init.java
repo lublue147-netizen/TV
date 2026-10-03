@@ -9,6 +9,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Map;
 
+import com.github.catvod.proxy.GoProxy;
+
 public class Init {
 
     private static volatile Context mContext;
@@ -57,6 +59,11 @@ public class Init {
                 } catch (Throwable ignored) {}
             }
         }
+
+        // Start the local playback proxy once the application context is available.
+        try {
+            GoProxy.start();
+        } catch (Throwable ignored) {}
     }
 
     public static Context get() {

@@ -119,7 +119,7 @@ func (a *Accelerator) InspectStream(ctx context.Context, targetURL string, heade
 				}
 				meta = &StreamMeta{
 					TotalBytes:   total,
-					AcceptRanges: cr != "" || respGet.Header.Get("Accept-Ranges") == "bytes",
+					AcceptRanges: respGet.StatusCode == http.StatusPartialContent && cr != "",
 					ContentType:  cType,
 					ResolvedURL:  respGet.Request.URL.String(),
 				}
@@ -217,7 +217,7 @@ func (a *Accelerator) ServeStream(w http.ResponseWriter, r *http.Request, target
 		// Trigger prefetch for upcoming chunks
 		for p := int64(1); p <= int64(workers); p++ {
 			nextC := c + p
-			if nextC <= meta.TotalBytes/chunkSize {
+			if nextC*chunkSize < meta.TotalBytes {
 				go a.prefetchChunk(streamID, targetURL, nextC, chunkSize, meta.TotalBytes, customHeaders)
 			}
 		}
@@ -326,8 +326,14 @@ func (a *Accelerator) downloadChunk(ctx context.Context, streamID, targetURL str
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
-		return nil, fmt.Errorf("bad status code: %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusPartialContent {
+		return nil, fmt.Errorf("range request returned status %d", resp.StatusCode)
+	}
+
+	contentRange := resp.Header.Get("Content-Range")
+	expectedPrefix := fmt.Sprintf("bytes %d-", startByte)
+	if !strings.HasPrefix(contentRange, expectedPrefix) {
+		return nil, fmt.Errorf("invalid Content-Range %q, expected prefix %q", contentRange, expectedPrefix)
 	}
 
 	data, err := io.ReadAll(resp.Body)

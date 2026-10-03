@@ -36,6 +36,11 @@ public class NetdiskStream {
                 }
             }
 
+            if (code < 200 || code >= 400) {
+                conn.disconnect();
+                return null;
+            }
+
             String contentType = conn.getContentType();
             if (contentType == null || contentType.isEmpty()) {
                 contentType = "video/mp4";
@@ -45,15 +50,12 @@ public class NetdiskStream {
 
             Map<String, String> respHeaders = new HashMap<>();
             for (Map.Entry<String, List<String>> entry : conn.getHeaderFields().entrySet()) {
-                if (entry.getKey() != null && !entry.getValue().isEmpty()) {
+                if (entry.getKey() != null && entry.getValue() != null && !entry.getValue().isEmpty()) {
                     respHeaders.put(entry.getKey(), entry.getValue().get(0));
                 }
             }
 
-            // Ensure Range headers
-            if (!respHeaders.containsKey("Accept-Ranges")) {
-                respHeaders.put("Accept-Ranges", "bytes");
-            }
+            // Preserve the upstream range capability instead of advertising a fake one.
             respHeaders.put("Access-Control-Allow-Origin", "*");
 
             return new Object[]{ code, contentType, is, respHeaders };
