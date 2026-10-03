@@ -8,6 +8,7 @@ import com.github.catvod.api.QuarkApi;
 import com.github.catvod.api.UcApi;
 import com.github.catvod.crawler.Spider;
 import com.github.catvod.proxy.GoProxy;
+import com.github.catvod.utils.NotifyToast;
 import com.github.catvod.utils.OkHttp;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -109,22 +110,122 @@ public class Wogg extends Spider {
         }
     }
 
+    public static class SourceConfig {
+        public String[][] categories;
+        public String[][] homeTags;
+        public Map<String, String[]> catMap = new HashMap<>();
+
+        public SourceConfig(String[][] categories, String[][] homeTags, String[][] catMappings) {
+            this.categories = categories;
+            this.homeTags = homeTags;
+            for (String[] m : catMappings) {
+                catMap.put(m[0], new String[]{m[1], m[2]});
+            }
+        }
+    }
+
+    protected SourceConfig getSourceConfig() {
+        String cls = this.getClass().getSimpleName();
+        if (cls.contains("HuaJuan")) {
+            // 花卷：专注国产剧集与华语精品
+            return new SourceConfig(
+                new String[][]{{"1", "国产热播剧"}, {"2", "华语院线"}, {"3", "古装仙侠"}, {"4", "都市悬疑"}, {"5", "精品微短剧"}},
+                new String[][]{{"tv", "国产剧", "16"}, {"movie", "华语", "14"}},
+                new String[][]{{"1", "tv", "国产剧"}, {"2", "movie", "华语"}, {"3", "tv", "古装"}, {"4", "tv", "悬疑"}, {"5", "tv", "短剧"}}
+            );
+        } else if (cls.contains("HuBan")) {
+            // 虎斑：专注动作大片与顶级科幻
+            return new SourceConfig(
+                new String[][]{{"1", "动作大片"}, {"2", "科幻震撼"}, {"3", "硬核战争"}, {"4", "犯罪惊悚"}, {"5", "冒险巨制"}},
+                new String[][]{{"movie", "动作", "16"}, {"movie", "科幻", "14"}},
+                new String[][]{{"1", "movie", "动作"}, {"2", "movie", "科幻"}, {"3", "movie", "战争"}, {"4", "movie", "犯罪"}, {"5", "movie", "冒险"}}
+            );
+        } else if (cls.contains("GuanYing")) {
+            // 观影：院线新片与全网最新热播
+            return new SourceConfig(
+                new String[][]{{"1", "院线新片"}, {"2", "最新热播剧"}, {"3", "热播综艺"}, {"4", "最新纪录片"}},
+                new String[][]{{"movie", "最新", "16"}, {"tv", "最新", "14"}},
+                new String[][]{{"1", "movie", "最新"}, {"2", "tv", "最新"}, {"3", "tv", "综艺"}, {"4", "tv", "纪录片"}}
+            );
+        } else if (cls.contains("PianKu")) {
+            // 盘库：豆瓣高分神作与经典影史
+            return new SourceConfig(
+                new String[][]{{"1", "豆瓣高分电影"}, {"2", "经典必看神剧"}, {"3", "冷门佳片"}, {"4", "高分纪录片"}},
+                new String[][]{{"movie", "豆瓣高分", "16"}, {"movie", "经典", "14"}},
+                new String[][]{{"1", "movie", "豆瓣高分"}, {"2", "tv", "经典"}, {"3", "movie", "冷门佳片"}, {"4", "tv", "纪录片"}}
+            );
+        } else if (cls.contains("MuOu")) {
+            // 木偶：爆笑喜剧与热门综艺
+            return new SourceConfig(
+                new String[][]{{"1", "爆笑喜剧"}, {"2", "热门综艺"}, {"3", "治愈轻喜"}, {"4", "欢乐脱口秀"}},
+                new String[][]{{"movie", "喜剧", "16"}, {"tv", "综艺", "14"}},
+                new String[][]{{"1", "movie", "喜剧"}, {"2", "tv", "综艺"}, {"3", "movie", "治愈"}, {"4", "tv", "脱口秀"}}
+            );
+        } else if (cls.contains("DuoDuo")) {
+            // 多多：热门日本番剧与动画剧场版
+            return new SourceConfig(
+                new String[][]{{"1", "日本新番"}, {"2", "动画电影"}, {"3", "热血国漫"}, {"4", "经典动漫"}},
+                new String[][]{{"tv", "日本动画", "16"}, {"movie", "动画", "14"}},
+                new String[][]{{"1", "tv", "日本动画"}, {"2", "movie", "动画"}, {"3", "tv", "国产动画"}, {"4", "tv", "经典动漫"}}
+            );
+        } else if (cls.contains("QwMkv")) {
+            // 七味：悬疑惊悚与烧脑顶级美剧
+            return new SourceConfig(
+                new String[][]{{"1", "悬疑惊悚"}, {"2", "顶级美剧"}, {"3", "高分罪案"}, {"4", "暗黑脑洞"}},
+                new String[][]{{"movie", "悬疑", "16"}, {"tv", "美剧", "14"}},
+                new String[][]{{"1", "movie", "悬疑"}, {"2", "tv", "美剧"}, {"3", "movie", "犯罪"}, {"4", "movie", "惊悚"}}
+            );
+        } else if (cls.contains("Libvio")) {
+            // 立播：欧美大片与全网欧美剧场
+            return new SourceConfig(
+                new String[][]{{"1", "欧美大片"}, {"2", "欧美剧场"}, {"3", "精选英剧"}, {"4", "科幻美剧"}},
+                new String[][]{{"movie", "欧美", "16"}, {"tv", "美剧", "14"}},
+                new String[][]{{"1", "movie", "欧美"}, {"2", "tv", "美剧"}, {"3", "tv", "英剧"}, {"4", "movie", "科幻"}}
+            );
+        } else if (cls.contains("WoNiu")) {
+            // 蜗牛：浪漫爱情与热播韩剧
+            return new SourceConfig(
+                new String[][]{{"1", "浪漫爱情"}, {"2", "都市情感"}, {"3", "热播韩剧"}, {"4", "治愈温情"}},
+                new String[][]{{"movie", "爱情", "16"}, {"tv", "韩剧", "14"}},
+                new String[][]{{"1", "movie", "爱情"}, {"2", "tv", "国产剧"}, {"3", "tv", "韩剧"}, {"4", "movie", "治愈"}}
+            );
+        } else if (cls.contains("HanXiaoQuan")) {
+            // 韩小圈：同步水木剧与韩国电影
+            return new SourceConfig(
+                new String[][]{{"1", "同步韩剧"}, {"2", "高分韩影"}, {"3", "韩国综艺"}, {"4", "日韩精选"}},
+                new String[][]{{"tv", "韩剧", "20"}, {"movie", "韩国", "10"}},
+                new String[][]{{"1", "tv", "韩剧"}, {"2", "movie", "韩国"}, {"3", "tv", "综艺"}, {"4", "tv", "日本动画"}}
+            );
+        } else if (cls.contains("DouBan") || cls.contains("Douban")) {
+            // 豆瓣：豆瓣官方热门影视榜单
+            return new SourceConfig(
+                new String[][]{{"1", "豆瓣电影热门"}, {"2", "热门电视剧"}, {"3", "高分综艺"}, {"4", "高分动漫"}},
+                new String[][]{{"movie", "热门", "15"}, {"tv", "热门", "15"}},
+                new String[][]{{"1", "movie", "热门"}, {"2", "tv", "热门"}, {"3", "tv", "综艺"}, {"4", "tv", "日本动画"}}
+            );
+        } else if (cls.contains("YiDong")) {
+            // 移动4K：高分纪录片与人文探索
+            return new SourceConfig(
+                new String[][]{{"1", "高分纪录片"}, {"2", "自然地理"}, {"3", "历史人文"}, {"4", "科学宇宙"}},
+                new String[][]{{"tv", "纪录片", "20"}, {"movie", "纪录片", "10"}},
+                new String[][]{{"1", "tv", "纪录片"}, {"2", "tv", "自然"}, {"3", "tv", "历史"}, {"4", "tv", "科学"}}
+            );
+        }
+        // 默认 / 玩偶哥哥 (Wogg / AiNewWoggGuard)
+        return new SourceConfig(
+            new String[][]{{"1", "4K电影"}, {"2", "全集剧集"}, {"3", "精品动漫"}, {"4", "热门综艺"}, {"5", "爽文短剧"}, {"6", "热播韩剧"}, {"7", "经典纪录片"}},
+            new String[][]{{"movie", "热门", "15"}, {"tv", "热门", "15"}},
+            new String[][]{{"1", "movie", "热门"}, {"2", "tv", "热门"}, {"3", "tv", "日本动画"}, {"4", "tv", "综艺"}, {"5", "tv", "国产剧"}, {"6", "tv", "韩剧"}, {"7", "tv", "纪录片"}}
+        );
+    }
+
     @Override
     public String homeContent(boolean filter) throws Exception {
         JSONObject result = new JSONObject();
         JSONArray classes = new JSONArray();
 
-        String[][] categories = {
-            {"1", "4K电影"},
-            {"2", "全集剧集"},
-            {"3", "精品动漫"},
-            {"4", "热门综艺"},
-            {"5", "爽文短剧"},
-            {"6", "热播韩剧"},
-            {"7", "经典纪录片"}
-        };
-
-        for (String[] cat : categories) {
+        SourceConfig cfg = getSourceConfig();
+        for (String[] cat : cfg.categories) {
             JSONObject c = new JSONObject();
             c.put("type_id", cat[0]);
             c.put("type_name", cat[1]);
@@ -144,10 +245,15 @@ public class Wogg extends Spider {
             } catch (Exception ignored) {}
         }
 
-        // 2. 高清豆瓣热门影视库 (保证秒开加载、高清海报、绝不为空)
+        // 2. 高清豆瓣热门影视库 (按源特定主题精准加载，杜绝千篇一律)
         if (list.length() == 0) {
-            fetchDoubanSubjects("movie", "热门", 15, 0, list);
-            fetchDoubanSubjects("tv", "热门", 15, 0, list);
+            for (String[] ht : cfg.homeTags) {
+                String type = ht[0];
+                String tag = ht[1];
+                int count = 15;
+                try { count = Integer.parseInt(ht[2]); } catch (Exception ignored) {}
+                fetchDoubanSubjects(type, tag, count, 0, list);
+            }
         }
 
         // 3. PanSearch 4K 热门保底
@@ -178,6 +284,8 @@ public class Wogg extends Spider {
         JSONObject result = new JSONObject();
         JSONArray list = new JSONArray();
 
+        SourceConfig cfg = getSourceConfig();
+
         // 1. 尝试自定义镜像分类
         if (siteUrl != null && !siteUrl.contains("tvfan.xxooo.cf")) {
             try {
@@ -189,31 +297,14 @@ public class Wogg extends Spider {
             } catch (Exception ignored) {}
         }
 
-        // 2. 映射豆瓣各大分类库 (绝不报找不到数据，分页稳定)
+        // 2. 映射当前源对应的豆瓣分类库 (分类精准匹配，绝不报找不到数据，分页稳定)
         if (list.length() == 0) {
             String type = "movie";
             String tag = "热门";
-            if ("1".equals(tid)) {
-                type = "movie";
-                tag = "热门";
-            } else if ("2".equals(tid)) {
-                type = "tv";
-                tag = "热门";
-            } else if ("3".equals(tid)) {
-                type = "tv";
-                tag = "日本动画";
-            } else if ("4".equals(tid)) {
-                type = "tv";
-                tag = "综艺";
-            } else if ("5".equals(tid)) {
-                type = "tv";
-                tag = "国产剧";
-            } else if ("6".equals(tid)) {
-                type = "tv";
-                tag = "韩剧";
-            } else if ("7".equals(tid)) {
-                type = "tv";
-                tag = "纪录片";
+            if (cfg.catMap.containsKey(tid)) {
+                String[] m = cfg.catMap.get(tid);
+                type = m[0];
+                tag = m[1];
             }
             fetchDoubanSubjects(type, tag, limit, start, list);
         }
@@ -221,13 +312,9 @@ public class Wogg extends Spider {
         // 3. PanSearch 关键词保底
         if (list.length() == 0) {
             String keyword = "4K";
-            if ("1".equals(tid)) keyword = "电影 4K";
-            else if ("2".equals(tid)) keyword = "剧集 4K";
-            else if ("3".equals(tid)) keyword = "动漫 4K";
-            else if ("4".equals(tid)) keyword = "综艺 4K";
-            else if ("5".equals(tid)) keyword = "短剧";
-            else if ("6".equals(tid)) keyword = "韩剧 4K";
-            else if ("7".equals(tid)) keyword = "纪录片 4K";
+            if (cfg.catMap.containsKey(tid)) {
+                keyword = cfg.catMap.get(tid)[1] + " 4K";
+            }
 
             List<PanSearchApi.Item> searchItems = PanSearchApi.search(keyword);
             for (PanSearchApi.Item item : searchItems) {
@@ -457,7 +544,30 @@ public class Wogg extends Spider {
         StringBuilder playFrom = new StringBuilder();
         StringBuilder playUrl = new StringBuilder();
 
-        // 1. 构建【百度原画】与【百度无限】（突破限速双线路，置于首位突出显示）
+        // 1. 构建【夸克原画】（主线路置顶，保证绝不缺失）
+        StringBuilder qEp = new StringBuilder();
+        for (String qId : quarkShareIds) {
+            String stoken = QuarkApi.get().getShareToken(qId, "");
+            List<QuarkApi.FileItem> qFiles = QuarkApi.get().listShareFiles(qId, stoken);
+            int idx = 1;
+            for (QuarkApi.FileItem item : qFiles) {
+                if (qEp.length() > 0) qEp.append("#");
+                String epName = cleanEpisodeName(item.name, idx);
+                String playParam = "quark::" + qId + "::" + stoken + "::" + item.fid + "::" + item.shareFidToken;
+                qEp.append(epName).append("$").append(playParam);
+                idx++;
+            }
+            if (qEp.length() > 0) break;
+        }
+        if (qEp.length() == 0) {
+            String qId = !quarkShareIds.isEmpty() ? quarkShareIds.iterator().next() : ("search://" + searchKey);
+            qEp.append("4K极速正片$quark::").append(qId).append("::::0::");
+        }
+
+        playFrom.append("夸克原画");
+        playUrl.append(qEp);
+
+        // 2. 构建【百度原画】与【百度无限】（突破限速双线路）
         StringBuilder bOrigEp = new StringBuilder();
         StringBuilder bUnlimitEp = new StringBuilder();
         for (String[] bInfo : baiduShares) {
@@ -486,30 +596,11 @@ public class Wogg extends Spider {
             bUnlimitEp.append("4K极速正片$baidu_unlimit::").append(sUrl).append("::0::").append(pwd);
         }
 
-        playFrom.append("百度原画");
-        playUrl.append(bOrigEp);
+        playFrom.append("$$$百度原画");
+        playUrl.append("$$$").append(bOrigEp);
 
         playFrom.append("$$$百度无限");
         playUrl.append("$$$").append(bUnlimitEp);
-
-        // 2. 构建【夸克原画】
-        StringBuilder qEp = new StringBuilder();
-        for (String qId : quarkShareIds) {
-            String stoken = QuarkApi.get().getShareToken(qId, "");
-            List<QuarkApi.FileItem> qFiles = QuarkApi.get().listShareFiles(qId, stoken);
-            int idx = 1;
-            for (QuarkApi.FileItem item : qFiles) {
-                if (qEp.length() > 0) qEp.append("#");
-                String epName = cleanEpisodeName(item.name, idx);
-                String playParam = "quark::" + qId + "::" + stoken + "::" + item.fid + "::" + item.shareFidToken;
-                qEp.append(epName).append("$").append(playParam);
-                idx++;
-            }
-        }
-        if (qEp.length() > 0) {
-            playFrom.append("$$$夸克原画");
-            playUrl.append("$$$").append(qEp);
-        }
 
         // 3. 构建【UC原画】
         StringBuilder ucEp = new StringBuilder();
@@ -524,6 +615,7 @@ public class Wogg extends Spider {
                 ucEp.append(epName).append("$").append(playParam);
                 idx++;
             }
+            if (ucEp.length() > 0) break;
         }
         if (ucEp.length() > 0) {
             playFrom.append("$$$UC原画");
@@ -543,6 +635,7 @@ public class Wogg extends Spider {
                 aEp.append(epName).append("$").append(playParam);
                 idx++;
             }
+            if (aEp.length() > 0) break;
         }
         if (aEp.length() > 0) {
             playFrom.append("$$$阿里原画");
@@ -575,12 +668,37 @@ public class Wogg extends Spider {
         if (id.startsWith("quark::")) {
             // 解析夸克分集直链
             String[] parts = id.split("::");
-            if (parts.length >= 5) {
-                String shareId = parts[1];
-                String stoken = parts[2];
-                String fid = parts[3];
-                String shareFidToken = parts[4];
-                rawStreamUrl = QuarkApi.get().getPlayUrl(shareId, stoken, fid, shareFidToken);
+            String shareId = parts.length > 1 ? parts[1] : "";
+            String stoken = parts.length > 2 ? parts[2] : "";
+            String fid = parts.length > 3 ? parts[3] : "0";
+            String shareFidToken = parts.length > 4 ? parts[4] : "";
+
+            if (shareId.startsWith("search://")) {
+                String kw = shareId.substring(9).trim();
+                List<PanSearchApi.Item> qSearch = PanSearchApi.searchPan(kw, "quark");
+                for (PanSearchApi.Item item : qSearch) {
+                    Matcher mQ = REGEX_QUARK_LINK.matcher(item.content + " " + item.shareUrl);
+                    if (mQ.find()) {
+                        shareId = mQ.group(1);
+                        break;
+                    }
+                }
+            }
+
+            if (!shareId.isEmpty() && !shareId.startsWith("search://")) {
+                if (stoken.isEmpty()) {
+                    stoken = QuarkApi.get().getShareToken(shareId, "");
+                }
+                if ("0".equals(fid) || fid.isEmpty()) {
+                    List<QuarkApi.FileItem> qFiles = QuarkApi.get().listShareFiles(shareId, stoken);
+                    if (!qFiles.isEmpty()) {
+                        fid = qFiles.get(0).fid;
+                        shareFidToken = qFiles.get(0).shareFidToken;
+                    }
+                }
+                if (!"0".equals(fid) && !fid.isEmpty()) {
+                    rawStreamUrl = QuarkApi.get().getPlayUrl(shareId, stoken, fid, shareFidToken);
+                }
             }
             headers.put("User-Agent", OkHttp.CHROME);
             headers.put("Referer", "https://pan.quark.cn/");
@@ -600,12 +718,23 @@ public class Wogg extends Spider {
             headers.put("User-Agent", OkHttp.CHROME);
         }
 
-        if (rawStreamUrl.isEmpty()) {
-            rawStreamUrl = id;
+        if (rawStreamUrl.isEmpty() || !rawStreamUrl.startsWith("http")) {
+            if (id.startsWith("quark::")) {
+                if (!QuarkApi.get().hasCookie()) {
+                    NotifyToast.show("请在【配置中心】扫码或配置夸克网盘账号后播放");
+                } else {
+                    NotifyToast.show("夸克网盘解析失败，该资源可能已被限制或失效");
+                }
+            } else if (id.startsWith("ali::")) {
+                NotifyToast.show("阿里云盘解析失败，请在【配置中心】检查配置");
+            }
+            result.put("url", "");
+            return result.toString();
         }
 
         // 通过 GoProxy 乱序并发 Range 预取切片进行流媒体加速
-        result.put("url", GoProxy.wrap(rawStreamUrl, headers));
+        String proxyUrl = GoProxy.wrap(rawStreamUrl, headers);
+        result.put("url", proxyUrl);
         JSONObject hObj = new JSONObject();
         for (Map.Entry<String, String> entry : headers.entrySet()) {
             hObj.put(entry.getKey(), entry.getValue());

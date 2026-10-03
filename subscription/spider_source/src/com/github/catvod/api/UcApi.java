@@ -1,6 +1,7 @@
 package com.github.catvod.api;
 
 import com.github.catvod.proxy.GoProxy;
+import com.github.catvod.utils.NotifyToast;
 import com.github.catvod.utils.OkHttp;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -191,8 +192,14 @@ public class UcApi {
             } catch (Exception ignored) {}
         }
 
-        if (downloadUrl.isEmpty()) {
-            downloadUrl = "https://drive.uc.cn/s/" + shareId;
+        if (downloadUrl.isEmpty() || !downloadUrl.startsWith("http") || downloadUrl.contains("drive.uc.cn/s/")) {
+            if (cookieStr.isEmpty()) {
+                NotifyToast.show("请在【配置中心】扫码或输入UC网盘Cookie后播放");
+            } else {
+                NotifyToast.show("UC网盘直链解析失败，该资源可能已被限制");
+            }
+            result.put("url", "");
+            return result;
         }
 
         JSONObject headers = new JSONObject();

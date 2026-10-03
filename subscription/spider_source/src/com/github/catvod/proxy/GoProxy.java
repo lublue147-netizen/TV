@@ -170,14 +170,14 @@ public class GoProxy {
      * Formats URL with TVBox proxy protocol fallback.
      */
     public static String wrap(String rawUrl, Map<String, String> headers) {
+        if (rawUrl == null) return "";
+        rawUrl = rawUrl.trim();
+        if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+            return "";
+        }
         if (isAlive()) {
             return getAcceleratedUrl(rawUrl, headers);
         }
-        // Fallback to CatVod proxy:// schema
-        try {
-            return "proxy://do=pan&url=" + URLEncoder.encode(rawUrl, "UTF-8");
-        } catch (Exception e) {
-            return rawUrl;
-        }
+        return rawUrl;
     }
 }

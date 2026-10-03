@@ -2,6 +2,7 @@ package com.github.catvod.api;
 
 import com.github.catvod.proxy.GoProxy;
 import com.github.catvod.spider.Init;
+import com.github.catvod.utils.NotifyToast;
 import com.github.catvod.utils.OkHttp;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -280,8 +281,16 @@ public class BaiduApi {
         String directUrl = "";
         String userCookie = getCookie();
 
+        // 如果 fsId 为 "0" 且 shareUrl 有效，尝试遍历获取第一个视频文件的 fsId
+        if (("0".equals(fsId) || fsId.isEmpty()) && shareUrl.startsWith("http")) {
+            List<FileItem> bFiles = listShareFiles(shareUrl, pwd);
+            if (!bFiles.isEmpty()) {
+                fsId = bFiles.get(0).fsId;
+            }
+        }
+
         // 如果用户配置了个人百度 Cookie (如 BDUSS)，通过 PCS 直链 API 换取极速直连
-        if (!userCookie.isEmpty() && !"0".equals(fsId)) {
+        if (!userCookie.isEmpty() && !"0".equals(fsId) && !fsId.isEmpty()) {
             try {
                 String dlinkUrl = "https://pan.baidu.com/rest/2.0/xpan/multimedia?method=filemetas&dlink=1&fsids=%5B" + fsId + "%5D";
                 Map<String, String> dHeaders = new HashMap<>();
@@ -300,9 +309,14 @@ public class BaiduApi {
             } catch (Exception ignored) {}
         }
 
-        // 兜底流地址：若是原生分享，直接使用分享文件流
-        if (directUrl.isEmpty()) {
-            directUrl = shareUrl;
+        if (directUrl.isEmpty() || !directUrl.startsWith("http") || directUrl.contains("pan.baidu.com/s/")) {
+            if (userCookie.isEmpty()) {
+                NotifyToast.show("请在【配置中心】配置百度网盘Cookie (BDUSS) 后播放");
+            } else {
+                NotifyToast.show("百度网盘直链解析失败，该资源可能已被限制");
+            }
+            result.put("url", "");
+            return result;
         }
 
         JSONObject headers = new JSONObject();
