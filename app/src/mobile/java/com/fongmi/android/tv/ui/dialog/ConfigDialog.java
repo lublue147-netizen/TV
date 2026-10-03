@@ -7,6 +7,9 @@ import android.text.TextUtils;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 
+import java.util.Collections;
+import java.util.List;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.fragment.app.Fragment;
@@ -92,13 +95,14 @@ public class ConfigDialog extends BaseAlertDialog {
     }
 
     private void initPresets() {
-        if (type != 0) {
+        List<Config> items = type == 0 ? Preset.getVodPresets() : (type == 1 ? Preset.getLivePresets() : Collections.emptyList());
+        if (items.isEmpty()) {
             binding.presetScroll.setVisibility(View.GONE);
             return;
         }
         binding.presetScroll.setVisibility(View.VISIBLE);
         binding.presets.removeAllViews();
-        for (Config item : Preset.getVodPresets()) {
+        for (Config item : items) {
             Chip chip = new Chip(requireContext());
             chip.setText(item.getName());
             chip.setOnClickListener(v -> {
@@ -160,8 +164,9 @@ public class ConfigDialog extends BaseAlertDialog {
         String name = binding.name.getText().toString().trim();
         if (edit) Config.find(ori, type).url(url).name(name).update();
         if (url.isEmpty()) Config.delete(ori, type);
-        if (name.isEmpty()) ((ConfigListener) requireParentFragment()).setConfig(Config.find(url, type));
-        else ((ConfigListener) requireParentFragment()).setConfig(Config.find(url, name, type));
+        Config target = name.isEmpty() ? Config.find(url, type) : Config.find(url, name, type);
+        target.update();
+        ((ConfigListener) requireParentFragment()).setConfig(target);
         dismiss();
     }
 
@@ -169,7 +174,9 @@ public class ConfigDialog extends BaseAlertDialog {
 
     private void setConfig(Uri uri) {
         if (!isAdded()) return;
-        ((ConfigListener) requireParentFragment()).setConfig(Config.find(UrlUtil.toLocalUrl(uri), type));
+        Config target = Config.find(UrlUtil.toLocalUrl(uri), type);
+        target.update();
+        ((ConfigListener) requireParentFragment()).setConfig(target);
         dismiss();
     }
 }

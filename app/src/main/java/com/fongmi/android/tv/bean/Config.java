@@ -91,42 +91,73 @@ public class Config {
     }
 
     public static void initPresets() {
-        long now = System.currentTimeMillis();
         AppDatabase.get().getConfigDao().delete("https://cdn.jsdelivr.net/gh/lublue147-netizen/TV@gh-pages/aiwex.json");
 
+        String activeVodUrl = Prefers.getString("config_0");
         List<Config> presets = Preset.getVodPresets();
         for (int i = presets.size() - 1; i >= 0; i--) {
             Config preset = presets.get(i);
             Config existing = AppDatabase.get().getConfigDao().find(preset.getUrl(), 0);
+            long presetTime = (presets.size() - i) * 1000L;
             if (existing == null) {
-                preset.setTime(now + (presets.size() - i) * 1000L);
+                preset.setTime(presetTime);
                 preset.save();
             } else {
                 existing.setName(preset.getName());
-                existing.update();
+                if (!preset.getUrl().equals(activeVodUrl)) {
+                    existing.setTime(presetTime);
+                }
+                existing.save();
             }
         }
-        Config active = AppDatabase.get().getConfigDao().findOne(0);
-        if (active == null || active.isEmpty() || Preset.FULL_CLEAN.equals(active.getUrl())) {
-            Config defaultPreset = AppDatabase.get().getConfigDao().find(Preset.ACCELERATED_OPEN, 0);
-            if (defaultPreset == null) defaultPreset = AppDatabase.get().getConfigDao().find(Preset.ACCELERATED, 0);
-            if (defaultPreset == null) defaultPreset = AppDatabase.get().getConfigDao().find(Preset.AIWEX, 0);
-            if (defaultPreset != null) defaultPreset.update();
+
+        String activeLiveUrl = Prefers.getString("config_1");
+        List<Config> livePresets = Preset.getLivePresets();
+        for (int i = livePresets.size() - 1; i >= 0; i--) {
+            Config preset = livePresets.get(i);
+            Config existing = AppDatabase.get().getConfigDao().find(preset.getUrl(), 1);
+            long presetTime = (livePresets.size() - i) * 1000L;
+            if (existing == null) {
+                preset.setTime(presetTime);
+                preset.save();
+            } else {
+                existing.setName(preset.getName());
+                if (!preset.getUrl().equals(activeLiveUrl)) {
+                    existing.setTime(presetTime);
+                }
+                existing.save();
+            }
+        }
+
+        if (TextUtils.isEmpty(activeVodUrl)) {
+            Config active = AppDatabase.get().getConfigDao().findOne(0);
+            if (active == null || active.isEmpty() || active.getTime() < 1000000L) {
+                Config defaultPreset = AppDatabase.get().getConfigDao().find(Preset.ACCELERATED_OPEN, 0);
+                if (defaultPreset == null) defaultPreset = AppDatabase.get().getConfigDao().find(Preset.ACCELERATED, 0);
+                if (defaultPreset == null) defaultPreset = AppDatabase.get().getConfigDao().find(Preset.AIWEX, 0);
+                if (defaultPreset != null) defaultPreset.update();
+            }
         }
     }
 
     public static Config vod() {
-        Config item = AppDatabase.get().getConfigDao().findOne(0);
+        String url = Prefers.getString("config_0");
+        Config item = TextUtils.isEmpty(url) ? null : AppDatabase.get().getConfigDao().find(url, 0);
+        if (item == null) item = AppDatabase.get().getConfigDao().findOne(0);
         return item == null ? create(0) : item;
     }
 
     public static Config live() {
-        Config item = AppDatabase.get().getConfigDao().findOne(1);
+        String url = Prefers.getString("config_1");
+        Config item = TextUtils.isEmpty(url) ? null : AppDatabase.get().getConfigDao().find(url, 1);
+        if (item == null) item = AppDatabase.get().getConfigDao().findOne(1);
         return item == null ? create(1) : item;
     }
 
     public static Config wall() {
-        Config item = AppDatabase.get().getConfigDao().findOne(2);
+        String url = Prefers.getString("config_2");
+        Config item = TextUtils.isEmpty(url) ? null : AppDatabase.get().getConfigDao().find(url, 2);
+        if (item == null) item = AppDatabase.get().getConfigDao().findOne(2);
         return item == null ? create(2) : item;
     }
 

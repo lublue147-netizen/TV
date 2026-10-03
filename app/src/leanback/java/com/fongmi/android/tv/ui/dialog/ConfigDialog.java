@@ -148,8 +148,9 @@ public class ConfigDialog extends BaseAlertDialog {
         String text = binding.text.getText().toString().trim();
         if (edit) Config.find(url, type).url(text).update();
         if (text.isEmpty()) Config.delete(url, type);
-        if (name.isEmpty()) ((ConfigListener) requireActivity()).setConfig(Config.find(text, type));
-        else ((ConfigListener) requireActivity()).setConfig(Config.find(text, name, type));
+        Config target = name.isEmpty() ? Config.find(text, type) : Config.find(text, name, type);
+        target.update();
+        ((ConfigListener) requireActivity()).setConfig(target);
         dismiss();
     }
 
@@ -182,7 +183,9 @@ public class ConfigDialog extends BaseAlertDialog {
 
     private void setConfig(Uri uri) {
         if (!isAdded()) return;
-        ((ConfigListener) requireActivity()).setConfig(Config.find(UrlUtil.toLocalUrl(uri), type));
+        Config target = Config.find(UrlUtil.toLocalUrl(uri), type);
+        target.update();
+        ((ConfigListener) requireActivity()).setConfig(target);
         dismiss();
     }
 }

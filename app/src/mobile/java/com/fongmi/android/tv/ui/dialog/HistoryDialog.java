@@ -96,6 +96,7 @@ public class HistoryDialog extends BaseAlertDialog implements ConfigAdapter.OnCl
             else DepotDialog.create().show(requireParentFragment());
             return;
         }
+        item.update();
         listener.setConfig(item);
         dismiss();
     }
