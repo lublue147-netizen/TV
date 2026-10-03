@@ -238,6 +238,16 @@ public class QuarkApi {
         }
     }
 
+    private static class FolderEntry {
+        String fid;
+        String shareFidToken;
+
+        FolderEntry(String fid, String shareFidToken) {
+            this.fid = fid;
+            this.shareFidToken = shareFidToken != null ? shareFidToken : "";
+        }
+    }
+
     /**
      * 递归遍历分享文件夹，提取所有视频媒体剧集
      */
@@ -248,20 +258,22 @@ public class QuarkApi {
         }
         if (stoken.isEmpty()) return videos;
 
-        Queue<String> folderQueue = new LinkedList<>();
-        folderQueue.add("0"); // 根目录
+        Queue<FolderEntry> folderQueue = new LinkedList<>();
+        folderQueue.add(new FolderEntry("0", "")); // 根目录
 
         int depth = 0;
         while (!folderQueue.isEmpty() && depth < 50) {
-            String folderId = folderQueue.poll();
+            FolderEntry cur = folderQueue.poll();
             depth++;
             try {
                 int page = 1;
                 boolean hasMore = true;
                 while (hasMore && page <= 10) {
+                    String tokenArg = (!cur.shareFidToken.isEmpty()) ? "&share_fid_token=" + URLEncoder.encode(cur.shareFidToken, "UTF-8") : "";
                     String url = HOST_PAN + "share/sharepage/detail?" + PR + "&pwd_id=" + shareId
                             + "&stoken=" + URLEncoder.encode(stoken, "UTF-8")
-                            + "&pdir_fid=" + folderId
+                            + "&pdir_fid=" + cur.fid
+                            + tokenArg
                             + "&force=0&_page=" + page + "&_size=100&_sort=file_type:asc,file_name:asc";
 
                     String res = OkHttp.get(url, getHeaders());
@@ -277,14 +289,14 @@ public class QuarkApi {
                         boolean isDir = item.optBoolean("dir", false);
                         String fid = item.optString("fid");
                         String name = item.optString("file_name");
-                        String pdirFid = item.optString("pdir_fid", folderId);
-                        if (pdirFid.isEmpty()) pdirFid = folderId;
+                        String pdirFid = item.optString("pdir_fid", cur.fid);
+                        if (pdirFid.isEmpty()) pdirFid = cur.fid;
+                        String shareFidToken = item.optString("share_fid_token", "");
 
                         if (isDir) {
-                            folderQueue.add(fid);
+                            folderQueue.add(new FolderEntry(fid, shareFidToken));
                         } else {
                             String format = item.optString("format_type", "");
-                            String shareFidToken = item.optString("share_fid_token", "");
                             long size = item.optLong("size", 0);
 
                             if (isVideo(name, format)) {

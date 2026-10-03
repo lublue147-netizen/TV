@@ -301,7 +301,25 @@ public class BaiduApi {
             Map<String, String> pHeaders = new HashMap<>();
             pHeaders.put("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
             if (finalCookie.length() > 0) pHeaders.put("Cookie", finalCookie.toString());
-            pageHtml = OkHttp.get("https://pan.baidu.com/s/1" + surl, pHeaders);
+            OkHttp.Response pageResp = OkHttp.request("GET", "https://pan.baidu.com/s/1" + surl, null, pHeaders);
+            if (pageResp != null && pageResp.body != null) {
+                pageHtml = pageResp.body;
+                List<String> setCookies = pageResp.getHeaders("Set-Cookie");
+                if (setCookies != null) {
+                    for (String sc : setCookies) {
+                        String pair = sc.split(";")[0].trim();
+                        int eq = pair.indexOf('=');
+                        if (eq > 0) {
+                            cookieJar.put(pair.substring(0, eq).trim(), pair.substring(eq + 1).trim());
+                        }
+                    }
+                    finalCookie.setLength(0);
+                    for (Map.Entry<String, String> entry : cookieJar.entrySet()) {
+                        if (finalCookie.length() > 0) finalCookie.append("; ");
+                        finalCookie.append(entry.getKey()).append("=").append(entry.getValue());
+                    }
+                }
+            }
 
             Matcher mUk = Pattern.compile("\"?share_uk\"?\\s*:\\s*\"?(\\d+)\"?").matcher(pageHtml);
             if (mUk.find()) shareUk = mUk.group(1);
