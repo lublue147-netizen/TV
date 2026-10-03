@@ -22,8 +22,11 @@ public class QuarkApi {
 
     private static final String PREF_NAME = "pan_config";
     private static final String KEY_COOKIE = "quark_cookie";
-    private static final String BASE_URL = "https://drive-pc.quark.cn/1/clouddrive/";
-    private static final String PR = "pr=ucpro&fr=pc";
+    private static final String HOST_PAN = "https://pan.quark.cn/1/clouddrive/";
+    private static final String HOST_DRIVE_PC = "https://drive-pc.quark.cn/1/clouddrive/";
+    private static final String HOST_DRIVE = "https://drive.quark.cn/1/clouddrive/";
+    private static final String PR = "pr=ucpro&fr=pc&uc_param_str=";
+    private static final String PC_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) quark-cloud-drive/2.5.20 Chrome/100.0.4896.160 Electron/18.3.5.4-b478491100 Safari/537.36 Channel/pckk_other_ch";
 
     private static volatile QuarkApi instance;
     private String cookie = "";
@@ -62,7 +65,7 @@ public class QuarkApi {
 
     private Map<String, String> getHeaders() {
         Map<String, String> h = new HashMap<>();
-        h.put("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
+        h.put("User-Agent", PC_UA);
         h.put("Referer", "https://pan.quark.cn/");
         if (!getCookie().isEmpty()) {
             h.put("Cookie", getCookie());
@@ -131,13 +134,34 @@ public class QuarkApi {
                 JSONObject members = obj.getJSONObject("data").getJSONObject("members");
                 String ticket = members.optString("service_ticket");
                 if (!ticket.isEmpty()) {
-                    // 换取 Cookie
+                    Map<String, String> cookieMap = new LinkedHashMap<>();
+                    // 1. 换取初级登录凭证
                     String authUrl = "https://pan.quark.cn/account/info?st=" + URLEncoder.encode(ticket, "UTF-8") + "&lw=scan";
-                    OkHttp.Response authResp = OkHttp.getResponse(authUrl, getHeaders());
-                    String newCookie = authResp.getCookieString();
+                    Map<String, String> h = new HashMap<>();
+                    h.put("User-Agent", PC_UA);
+                    h.put("Referer", "https://pan.quark.cn/");
+                    OkHttp.Response authResp = OkHttp.getResponse(authUrl, h);
+                    extractCookies(authResp, cookieMap);
+
+                    // 2. 访问 pan.quark.cn/list 激活网盘会话并补齐 __puus
+                    if (!cookieMap.isEmpty()) {
+                        h.put("Cookie", toCookieString(cookieMap));
+                        OkHttp.Response listResp = OkHttp.getResponse("https://pan.quark.cn/list", h);
+                        extractCookies(listResp, cookieMap);
+
+                        // 3. 访问 drive-pc 接口获取专属客户端 Token
+                        h.put("Cookie", toCookieString(cookieMap));
+                        OkHttp.Response pcResp = OkHttp.getResponse(
+                            HOST_DRIVE_PC + "file/sort?" + PR + "&pdir_fid=0&_page=1&_size=50&_fetch_total=1&_sort=file_type:asc,updated_at:desc",
+                            h
+                        );
+                        extractCookies(pcResp, cookieMap);
+                    }
+
+                    String newCookie = toCookieString(cookieMap);
                     if (!newCookie.isEmpty()) {
                         setCookie(newCookie);
-                        com.github.catvod.utils.NotifyToast.show("🎉 夸克网盘扫码授权成功！已保存配置");
+                        com.github.catvod.utils.NotifyToast.show("🎉 夸克网盘扫码授权成功！4K原画已激活");
                         return "SUCCESS";
                     }
                 }
@@ -152,12 +176,37 @@ public class QuarkApi {
         }
     }
 
+    private static void extractCookies(OkHttp.Response resp, Map<String, String> map) {
+        if (resp == null) return;
+        List<String> setCookies = resp.getHeaders("Set-Cookie");
+        if (setCookies != null) {
+            for (String sc : setCookies) {
+                String pair = sc.split(";")[0].trim();
+                int eq = pair.indexOf('=');
+                if (eq > 0) {
+                    String k = pair.substring(0, eq).trim();
+                    String v = pair.substring(eq + 1).trim();
+                    map.put(k, v);
+                }
+            }
+        }
+    }
+
+    private static String toCookieString(Map<String, String> map) {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            if (sb.length() > 0) sb.append("; ");
+            sb.append(entry.getKey()).append("=").append(entry.getValue());
+        }
+        return sb.toString();
+    }
+
     /**
      * 获取分享链接的 stoken
      */
     public String getShareToken(String shareId, String pwd) {
         try {
-            String url = BASE_URL + "share/sharepage/token?" + PR;
+            String url = HOST_PAN + "share/sharepage/token?" + PR;
             JSONObject body = new JSONObject();
             body.put("pwd_id", shareId);
             body.put("passcode", pwd != null ? pwd : "");
@@ -207,7 +256,7 @@ public class QuarkApi {
                 int page = 1;
                 boolean hasMore = true;
                 while (hasMore && page <= 10) {
-                    String url = BASE_URL + "share/sharepage/detail?" + PR + "&pwd_id=" + shareId
+                    String url = HOST_PAN + "share/sharepage/detail?" + PR + "&pwd_id=" + shareId
                             + "&stoken=" + URLEncoder.encode(stoken, "UTF-8")
                             + "&pdir_fid=" + folderId
                             + "&force=0&_page=" + page + "&_size=100&_sort=file_type:asc,file_name:asc";
@@ -272,7 +321,7 @@ public class QuarkApi {
             }
 
             // 2. 请求 4K 下载直链
-            String downUrl = BASE_URL + "file/download?" + PR;
+            String downUrl = HOST_DRIVE + "file/download?" + PR;
             JSONObject downBody = new JSONObject();
             JSONArray fidsArr = new JSONArray();
             fidsArr.put(userFid);
@@ -283,12 +332,13 @@ public class QuarkApi {
             if (downJson.has("data")) {
                 JSONArray arr = downJson.getJSONArray("data");
                 if (arr.length() > 0) {
-                    return arr.getJSONObject(0).optString("download_url");
+                    String durl = arr.getJSONObject(0).optString("download_url");
+                    if (!durl.isEmpty()) return durl;
                 }
             }
 
             // 3. 转码播放回退
-            String playUrl = BASE_URL + "file/v2/play?" + PR;
+            String playUrl = HOST_DRIVE + "file/v2/play?" + PR;
             JSONObject playBody = new JSONObject();
             playBody.put("fid", userFid);
             playBody.put("resolutions", "4k,2k,super,high,normal");
@@ -312,7 +362,7 @@ public class QuarkApi {
         ensureSaveDir();
         if (saveDirId == null) return null;
 
-        String saveUrl = BASE_URL + "share/sharepage/save?" + PR;
+        String saveUrl = HOST_DRIVE_PC + "share/sharepage/save?" + PR;
         JSONObject saveBody = new JSONObject();
         JSONArray fidList = new JSONArray();
         fidList.put(fid);
@@ -329,20 +379,27 @@ public class QuarkApi {
 
         String saveRes = OkHttp.postJson(saveUrl, saveBody.toString(), getHeaders());
         JSONObject saveJson = new JSONObject(saveRes);
-        if (!saveJson.has("data") || !saveJson.getJSONObject("data").has("task_id")) {
-            return null;
-        }
-
-        String taskId = saveJson.getJSONObject("data").getString("task_id");
-        for (int retry = 0; retry < 5; retry++) {
-            Thread.sleep(600);
-            String taskUrl = BASE_URL + "task?" + PR + "&task_id=" + taskId;
-            String taskRes = OkHttp.get(taskUrl, getHeaders());
-            JSONObject tJson = new JSONObject(taskRes);
-            if (tJson.has("data") && tJson.getJSONObject("data").has("save_as")) {
-                JSONArray topFids = tJson.getJSONObject("data").getJSONObject("save_as").optJSONArray("save_as_top_fids");
-                if (topFids != null && topFids.length() > 0) {
-                    return topFids.getString(0);
+        if (saveJson.has("data")) {
+            JSONObject dataObj = saveJson.getJSONObject("data");
+            if (dataObj.has("finish")) {
+                JSONArray finishArr = dataObj.optJSONArray("finish");
+                if (finishArr != null && finishArr.length() > 0) {
+                    return finishArr.optJSONObject(0).optString("fid");
+                }
+            }
+            if (dataObj.has("task_id")) {
+                String taskId = dataObj.getString("task_id");
+                for (int retry = 0; retry < 8; retry++) {
+                    Thread.sleep(500);
+                    String taskUrl = HOST_DRIVE_PC + "task?" + PR + "&task_id=" + taskId;
+                    String taskRes = OkHttp.get(taskUrl, getHeaders());
+                    JSONObject tJson = new JSONObject(taskRes);
+                    if (tJson.has("data") && tJson.getJSONObject("data").has("save_as")) {
+                        JSONArray topFids = tJson.getJSONObject("data").getJSONObject("save_as").optJSONArray("save_as_top_fids");
+                        if (topFids != null && topFids.length() > 0) {
+                            return topFids.getString(0);
+                        }
+                    }
                 }
             }
         }
@@ -352,7 +409,7 @@ public class QuarkApi {
     private void ensureSaveDir() {
         if (saveDirId != null) return;
         try {
-            String url = BASE_URL + "file/sort?" + PR + "&pdir_fid=0&_page=1&_size=50&_sort=file_type:asc,updated_at:desc";
+            String url = HOST_DRIVE_PC + "file/sort?" + PR + "&pdir_fid=0&_page=1&_size=50&_sort=file_type:asc,updated_at:desc";
             String res = OkHttp.get(url, getHeaders());
             JSONObject json = new JSONObject(res);
             if (json.has("data") && json.getJSONObject("data").has("list")) {
@@ -367,7 +424,7 @@ public class QuarkApi {
             }
 
             // 创建 TV 目录
-            String createUrl = BASE_URL + "file?" + PR;
+            String createUrl = HOST_DRIVE_PC + "file?" + PR;
             JSONObject body = new JSONObject();
             body.put("pdir_fid", "0");
             body.put("file_name", "TV");

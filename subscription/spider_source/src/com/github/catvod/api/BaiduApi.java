@@ -76,6 +76,108 @@ public class BaiduApi {
         return !getCookie().isEmpty();
     }
 
+    public static class QrResult {
+        public String sign;
+        public String qrUrl;
+        public android.graphics.Bitmap bitmap;
+
+        public QrResult(String sign, String qrUrl, android.graphics.Bitmap bitmap) {
+            this.sign = sign;
+            this.qrUrl = qrUrl;
+            this.bitmap = bitmap;
+        }
+    }
+
+    public QrResult getQrcode() {
+        try {
+            String url = "https://passport.baidu.com/v2/api/getqrcode?lp=pc&qrloginfrom=pc";
+            Map<String, String> h = new HashMap<>();
+            h.put("User-Agent", OkHttp.CHROME);
+            String res = OkHttp.get(url, h);
+            if (!res.isEmpty()) {
+                JSONObject json = new JSONObject(res);
+                String sign = json.optString("sign");
+                String imgUrl = json.optString("imgurl");
+                if (!sign.isEmpty() && !imgUrl.isEmpty()) {
+                    String fullImgUrl = imgUrl.startsWith("http") ? imgUrl : ("https://" + imgUrl);
+                    byte[] bytes = OkHttp.getBytes(fullImgUrl);
+                    android.graphics.Bitmap bmp = null;
+                    if (bytes != null && bytes.length > 0) {
+                        try {
+                            bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                        } catch (Throwable ignored) {}
+                    }
+                    if (bmp == null) {
+                        bmp = com.github.catvod.qrcode.QrUtil.createBitmap(fullImgUrl, 400);
+                    }
+                    return new QrResult(sign, fullImgUrl, bmp);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public String checkQrcode(String sign) {
+        try {
+            String url = "https://passport.baidu.com/channel/unicast?channel_id=" + URLEncoder.encode(sign, "UTF-8") + "&callback=";
+            Map<String, String> headers = new HashMap<>();
+            headers.put("User-Agent", OkHttp.CHROME);
+            OkHttp.Response resp = OkHttp.getResponse(url, headers);
+            if (resp == null || resp.body.isEmpty()) {
+                return "WAITING";
+            }
+            String body = resp.body.trim();
+            if (body.startsWith("(") && body.endsWith(")")) {
+                body = body.substring(1, body.length() - 1).trim();
+            }
+            JSONObject json = new JSONObject(body);
+            int errno = json.optInt("errno", -1);
+            if (errno == 0 && json.has("channel_v")) {
+                String channelV = json.optString("channel_v", "");
+                if (channelV.startsWith("{")) {
+                    JSONObject vJson = new JSONObject(channelV);
+                    if (vJson.has("status") && vJson.optInt("status") == 1) {
+                        return "SCANED";
+                    }
+                    if (vJson.has("v")) {
+                        String vToken = vJson.getString("v");
+                        String loginUrl = "https://passport.baidu.com/v3/login/main/qrbdusslogin?bduss=" + URLEncoder.encode(vToken, "UTF-8");
+                        OkHttp.Response loginResp = OkHttp.getResponse(loginUrl, headers);
+                        String cookies = loginResp.getCookieString();
+                        if (cookies.contains("BDUSS=")) {
+                            setCookie(cookies);
+                            return "SUCCESS";
+                        }
+                        try {
+                            JSONObject lObj = new JSONObject(loginResp.body);
+                            JSONObject data = lObj.optJSONObject("data");
+                            if (data != null && data.has("session")) {
+                                String sess = data.optString("session");
+                                if (!sess.isEmpty()) {
+                                    setCookie("BDUSS=" + sess + "; " + cookies);
+                                    return "SUCCESS";
+                                }
+                            }
+                        } catch (Throwable ignored) {}
+                        if (!cookies.isEmpty()) {
+                            setCookie(cookies);
+                            return "SUCCESS";
+                        }
+                    }
+                }
+            } else if (errno == 1) {
+                return "WAITING";
+            } else if (errno == 2 || errno == 50004) {
+                return "EXPIRED";
+            }
+        } catch (Exception e) {
+            return "WAITING";
+        }
+        return "WAITING";
+    }
+
     /**
      * 从分享文本中提取标准化分享链接与提取码
      */

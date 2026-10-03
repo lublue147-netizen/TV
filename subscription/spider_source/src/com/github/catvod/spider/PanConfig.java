@@ -3,6 +3,7 @@ package com.github.catvod.spider;
 import android.content.Context;
 import android.graphics.Bitmap;
 import com.github.catvod.api.AliYunApi;
+import com.github.catvod.api.BaiduApi;
 import com.github.catvod.api.PanTokenManager;
 import com.github.catvod.api.QuarkApi;
 import com.github.catvod.crawler.Spider;
@@ -67,9 +68,9 @@ public class PanConfig extends Spider {
         // 1. 百度网盘配置
         JSONObject baidu = new JSONObject();
         baidu.put("vod_id", "baidu_config");
-        baidu.put("vod_name", "🐮 百度网盘·配置中心 (原画与无限)");
+        baidu.put("vod_name", "🐮 百度网盘·扫码配置 (原画与无限)");
         baidu.put("vod_pic", "https://img.icons8.com/color/480/baidu.png");
-        baidu.put("vod_remarks", baiduAuthed ? "✅ 已配置 (4K原画+无限加速)" : "❌ 未配置·点击扫码/网页输入");
+        baidu.put("vod_remarks", baiduAuthed ? "✅ 已授权配置 (4K原画+无限加速)" : "❌ 未配置·点击手机App扫码绑定");
         baidu.put("action", "scan_baidu");
         list.put(baidu);
 
@@ -127,7 +128,16 @@ public class PanConfig extends Spider {
         chkQuark.put("action", "check_quark");
         list.put(chkQuark);
 
-        // 8. 清除阿里云盘凭证
+        // 8. 一键检查百度网盘
+        JSONObject chkBaidu = new JSONObject();
+        chkBaidu.put("vod_id", "act_check_baidu");
+        chkBaidu.put("vod_name", "⚡ 检查/刷新百度网盘授权");
+        chkBaidu.put("vod_pic", "https://img.icons8.com/color/480/checked-checkbox.png");
+        chkBaidu.put("vod_remarks", baiduAuthed ? "✅ 当前已授权配置" : "❌ 未配置·点击查看");
+        chkBaidu.put("action", "check_baidu");
+        list.put(chkBaidu);
+
+        // 9. 清除阿里云盘凭证
         JSONObject clrAli = new JSONObject();
         clrAli.put("vod_id", "act_clear_ali");
         clrAli.put("vod_name", "🗑️ 清除阿里云盘登录凭证");
@@ -136,7 +146,7 @@ public class PanConfig extends Spider {
         clrAli.put("action", "clear_ali");
         list.put(clrAli);
 
-        // 9. 清除夸克网盘凭证
+        // 10. 清除夸克网盘凭证
         JSONObject clrQuark = new JSONObject();
         clrQuark.put("vod_id", "act_clear_quark");
         clrQuark.put("vod_name", "🗑️ 清除夸克网盘登录凭证");
@@ -144,6 +154,15 @@ public class PanConfig extends Spider {
         clrQuark.put("vod_remarks", "点击清除本地缓存凭证");
         clrQuark.put("action", "clear_quark");
         list.put(clrQuark);
+
+        // 11. 清除百度网盘凭证
+        JSONObject clrBaidu = new JSONObject();
+        clrBaidu.put("vod_id", "act_clear_baidu");
+        clrBaidu.put("vod_name", "🗑️ 清除百度网盘登录凭证");
+        clrBaidu.put("vod_pic", "https://img.icons8.com/color/480/delete-forever.png");
+        clrBaidu.put("vod_remarks", "点击清除本地缓存凭证");
+        clrBaidu.put("action", "clear_baidu");
+        list.put(clrBaidu);
 
         // 10. GoProxy 状态
         boolean goAlive = GoProxy.isAlive();
@@ -207,9 +226,9 @@ public class PanConfig extends Spider {
         } else if ("baidu_config".equals(id)) {
             showBaiduQrDialog();
             boolean authed = PanTokenManager.get().hasBaiduCookie();
-            vod.put("vod_name", "🐮 百度网盘·配置中心 (原画与无限)");
+            vod.put("vod_name", "🐮 百度网盘·扫码配置 (原画与无限)");
             vod.put("vod_pic", "https://img.icons8.com/color/480/baidu.png");
-            vod.put("vod_content", "【百度网盘·配置说明】\n1. 在手机或电脑浏览器打开局域网配置中心：" + webUrl + "\n2. 输入百度 Cookie 或 BDUSS 即可完成配置，支持 4K 原画直连与 GoProxy 并发切片无限加速！\n\n当前凭证状态：" + (authed ? "✅ 已配置 (生效中·原画+无限加速已激活)" : "❌ 尚未配置"));
+            vod.put("vod_content", "【百度网盘·扫码绑定说明】\n1. 请使用手机打开「百度网盘」App 或「百度」App 扫描弹出的二维码进行授权\n2. 手机端确认授权后，电视端将自动检测并在 2 秒内完成绑定生效！无需手动输入！\n\n💡 亦支持手机/电脑网页快捷配置：在同一 WiFi 浏览器打开 " + webUrl + "\n当前凭证状态：" + (authed ? "✅ 已授权配置 (生效中·原画+无限加速已激活)" : "❌ 尚未配置"));
             vod.put("vod_play_from", "");
             vod.put("vod_play_url", "");
 
@@ -271,12 +290,18 @@ public class PanConfig extends Spider {
             } else if ("check_quark".equals(action)) {
                 boolean has = PanTokenManager.get().hasQuarkCookie();
                 result.put("msg", has ? "✅ 夸克网盘已配置且凭证有效！" : "❌ 夸克网盘尚未配置，请点击扫码绑定。");
+            } else if ("check_baidu".equals(action)) {
+                boolean has = PanTokenManager.get().hasBaiduCookie();
+                result.put("msg", has ? "✅ 百度网盘已配置且凭证有效！" : "❌ 百度网盘尚未配置，请点击扫码绑定。");
             } else if ("clear_ali".equals(action)) {
                 PanTokenManager.get().setAliRefreshToken("");
                 result.put("msg", "🗑️ 阿里云盘本地凭证已清除。");
             } else if ("clear_quark".equals(action)) {
                 PanTokenManager.get().setQuarkCookie("");
                 result.put("msg", "🗑️ 夸克网盘本地凭证已清除。");
+            } else if ("clear_baidu".equals(action)) {
+                PanTokenManager.get().setBaiduCookie("");
+                result.put("msg", "🗑️ 百度网盘本地凭证已清除。");
             } else if ("show_ip".equals(action)) {
                 String ip = PanWebServer.getLocalIp();
                 int port = PanWebServer.getPort();
@@ -389,18 +414,36 @@ public class PanConfig extends Spider {
     private String showBaiduQrDialog() {
         JSONObject res = new JSONObject();
         try {
-            String webUrl = "http://" + PanWebServer.getLocalIp() + ":" + PanWebServer.getPort();
-            Bitmap bmp = QrUtil.createBitmap(webUrl, 400);
+            BaiduApi.QrResult qr = BaiduApi.get().getQrcode();
+            if (qr == null || qr.bitmap == null) {
+                res.put("msg", "❌ 获取百度登录二维码失败，请检查网络");
+                NotifyToast.show("获取百度二维码失败，请检查网络");
+                return res.toString();
+            }
+            final String sign = qr.sign;
             QrDialog.show(
-                "🐮 百度网盘·极速配置",
-                "手机扫码或浏览器访问: " + webUrl,
-                bmp,
-                "📱 扫码打开局域网配置页输入百度 Cookie/BDUSS",
-                null
+                "🐮 百度网盘·扫码绑定",
+                "请使用手机「百度网盘 App」或「百度 App」扫描下方二维码",
+                qr.bitmap,
+                "⏳ 等待手机百度网盘扫码...",
+                new QrDialog.Poller() {
+                    @Override
+                    public String check() {
+                        return BaiduApi.get().checkQrcode(sign);
+                    }
+
+                    @Override
+                    public void onSuccess() {
+                        NotifyToast.show("🎉 百度网盘授权成功！4K原画与无限加速已激活");
+                    }
+                }
             );
-            res.put("msg", "🌐 请在网页端输入百度网盘 Cookie/BDUSS");
+            res.put("msg", "📱 正在展示百度扫码窗口，请使用手机扫码");
         } catch (Exception e) {
             e.printStackTrace();
+            try {
+                res.put("msg", "打开扫码失败: " + e.getMessage());
+            } catch (Exception ignored) {}
         }
         return res.toString();
     }

@@ -140,4 +140,39 @@ public class OkHttp {
             return new Response(500, "", null);
         }
     }
+
+    public static byte[] getBytes(String urlStr) {
+        return getBytes(urlStr, null);
+    }
+
+    public static byte[] getBytes(String urlStr, Map<String, String> headers) {
+        try {
+            URL url = new URL(urlStr);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(6000);
+            conn.setReadTimeout(10000);
+            conn.setRequestProperty("User-Agent", CHROME);
+            if (headers != null) {
+                for (Map.Entry<String, String> entry : headers.entrySet()) {
+                    conn.setRequestProperty(entry.getKey(), entry.getValue());
+                }
+            }
+            int code = conn.getResponseCode();
+            if (code >= 200 && code < 400) {
+                InputStream is = conn.getInputStream();
+                java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = is.read(buf)) != -1) {
+                    baos.write(buf, 0, n);
+                }
+                is.close();
+                conn.disconnect();
+                return baos.toByteArray();
+            }
+            conn.disconnect();
+        } catch (Exception ignored) {}
+        return null;
+    }
 }

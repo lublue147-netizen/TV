@@ -4,6 +4,7 @@ import android.content.Context;
 import com.github.catvod.api.AliYunApi;
 import com.github.catvod.api.BaiduApi;
 import com.github.catvod.api.PanSearchApi;
+import com.github.catvod.api.PanTokenManager;
 import com.github.catvod.api.QuarkApi;
 import com.github.catvod.api.UcApi;
 import com.github.catvod.crawler.Spider;
@@ -544,8 +545,14 @@ public class Wogg extends Spider {
         StringBuilder playFrom = new StringBuilder();
         StringBuilder playUrl = new StringBuilder();
 
-        // 1. 构建【夸克原画】（主线路置顶，保证绝不缺失）
+        boolean quarkAuthed = PanTokenManager.get().hasQuarkCookie();
+        boolean baiduAuthed = PanTokenManager.get().hasBaiduCookie();
+        boolean ucAuthed = PanTokenManager.get().hasUcCookie();
+        boolean aliAuthed = PanTokenManager.get().hasAliRefreshToken();
+
+        // 1. 构建【夸克原画】
         StringBuilder qEp = new StringBuilder();
+        boolean hasRealQuark = false;
         for (String qId : quarkShareIds) {
             String stoken = QuarkApi.get().getShareToken(qId, "");
             List<QuarkApi.FileItem> qFiles = QuarkApi.get().listShareFiles(qId, stoken);
@@ -557,19 +564,16 @@ public class Wogg extends Spider {
                 qEp.append(epName).append("$").append(playParam);
                 idx++;
             }
-            if (qEp.length() > 0) break;
+            if (qEp.length() > 0) {
+                hasRealQuark = true;
+                break;
+            }
         }
-        if (qEp.length() == 0) {
-            String qId = !quarkShareIds.isEmpty() ? quarkShareIds.iterator().next() : ("search://" + searchKey);
-            qEp.append("4K极速正片$quark::").append(qId).append("::::0::");
-        }
-
-        playFrom.append("夸克原画");
-        playUrl.append(qEp);
 
         // 2. 构建【百度原画】与【百度无限】（突破限速双线路）
         StringBuilder bOrigEp = new StringBuilder();
         StringBuilder bUnlimitEp = new StringBuilder();
+        boolean hasRealBaidu = false;
         for (String[] bInfo : baiduShares) {
             String sUrl = bInfo[0];
             String pwd = bInfo[2];
@@ -587,23 +591,15 @@ public class Wogg extends Spider {
                 bUnlimitEp.append(epName).append("$").append(pUnlimit);
                 idx++;
             }
-            if (bOrigEp.length() > 0) break;
+            if (bOrigEp.length() > 0) {
+                hasRealBaidu = true;
+                break;
+            }
         }
-        if (bOrigEp.length() == 0) {
-            String sUrl = !baiduShares.isEmpty() ? baiduShares.get(0)[0] : ("search://" + searchKey);
-            String pwd = !baiduShares.isEmpty() ? baiduShares.get(0)[2] : "";
-            bOrigEp.append("4K原画正片$baidu_orig::").append(sUrl).append("::0::").append(pwd);
-            bUnlimitEp.append("4K极速正片$baidu_unlimit::").append(sUrl).append("::0::").append(pwd);
-        }
-
-        playFrom.append("$$$百度原画");
-        playUrl.append("$$$").append(bOrigEp);
-
-        playFrom.append("$$$百度无限");
-        playUrl.append("$$$").append(bUnlimitEp);
 
         // 3. 构建【UC原画】
         StringBuilder ucEp = new StringBuilder();
+        boolean hasRealUc = false;
         for (String ucId : ucShareIds) {
             String stoken = UcApi.get().getShareToken(ucId, "");
             List<UcApi.FileItem> ucFiles = UcApi.get().listShareFiles(ucId, stoken);
@@ -615,15 +611,15 @@ public class Wogg extends Spider {
                 ucEp.append(epName).append("$").append(playParam);
                 idx++;
             }
-            if (ucEp.length() > 0) break;
-        }
-        if (ucEp.length() > 0) {
-            playFrom.append("$$$UC原画");
-            playUrl.append("$$$").append(ucEp);
+            if (ucEp.length() > 0) {
+                hasRealUc = true;
+                break;
+            }
         }
 
         // 4. 构建【阿里原画】
         StringBuilder aEp = new StringBuilder();
+        boolean hasRealAli = false;
         for (String aId : aliShareIds) {
             String shareToken = AliYunApi.get().getShareToken(aId, "");
             List<AliYunApi.FileItem> aFiles = AliYunApi.get().listShareFiles(aId, shareToken);
@@ -635,11 +631,74 @@ public class Wogg extends Spider {
                 aEp.append(epName).append("$").append(playParam);
                 idx++;
             }
-            if (aEp.length() > 0) break;
+            if (aEp.length() > 0) {
+                hasRealAli = true;
+                break;
+            }
         }
+
+        // 兜底保底逻辑：如果未解析出分集，但有分享链接，生成默认正片；仅当没有任何真实资源时才用 search:// 保底
+        if (!hasRealBaidu && !baiduShares.isEmpty()) {
+            String sUrl = baiduShares.get(0)[0];
+            String pwd = baiduShares.get(0)[2];
+            bOrigEp.append("4K原画正片$baidu_orig::").append(sUrl).append("::0::").append(pwd);
+            bUnlimitEp.append("4K极速正片$baidu_unlimit::").append(sUrl).append("::0::").append(pwd);
+        } else if (!hasRealBaidu && !hasRealQuark && !hasRealUc && !hasRealAli && quarkShareIds.isEmpty()) {
+            bOrigEp.append("4K原画正片$baidu_orig::search://").append(searchKey).append("::0::");
+            bUnlimitEp.append("4K极速正片$baidu_unlimit::search://").append(searchKey).append("::0::");
+        }
+
+        if (!hasRealQuark && !quarkShareIds.isEmpty()) {
+            String qId = quarkShareIds.iterator().next();
+            qEp.append("4K极速正片$quark::").append(qId).append("::::0::");
+        } else if (!hasRealQuark && !hasRealBaidu && !hasRealUc && !hasRealAli && baiduShares.isEmpty()) {
+            qEp.append("4K极速正片$quark::search://").append(searchKey).append("::::0::");
+        }
+
+        // 智能自适应线路排序器：结合用户授权配置状态及真实剧集可用性动态排序
+        class TabLine {
+            String from;
+            String url;
+            int score;
+            TabLine(String from, String url, int score) {
+                this.from = from;
+                this.url = url;
+                this.score = score;
+            }
+        }
+        List<TabLine> tabLines = new ArrayList<>();
+
+        if (bOrigEp.length() > 0) {
+            int score = (baiduAuthed ? 1000 : 0) + (hasRealBaidu ? 200 : 0) + 50;
+            tabLines.add(new TabLine("百度原画", bOrigEp.toString(), score));
+            tabLines.add(new TabLine("百度无限", bUnlimitEp.toString(), score - 1));
+        }
+
+        if (qEp.length() > 0) {
+            int score = (quarkAuthed ? 1000 : 0) + (hasRealQuark ? 200 : 0) + 40;
+            tabLines.add(new TabLine("夸克原画", qEp.toString(), score));
+        }
+
+        if (ucEp.length() > 0) {
+            int score = (ucAuthed ? 1000 : 0) + (hasRealUc ? 200 : 0) + 30;
+            tabLines.add(new TabLine("UC原画", ucEp.toString(), score));
+        }
+
         if (aEp.length() > 0) {
-            playFrom.append("$$$阿里原画");
-            playUrl.append("$$$").append(aEp);
+            int score = (aliAuthed ? 1000 : 0) + (hasRealAli ? 200 : 0) + 20;
+            tabLines.add(new TabLine("阿里原画", aEp.toString(), score));
+        }
+
+        Collections.sort(tabLines, (o1, o2) -> Integer.compare(o2.score, o1.score));
+
+        for (int i = 0; i < tabLines.size(); i++) {
+            TabLine line = tabLines.get(i);
+            if (i > 0) {
+                playFrom.append("$$$");
+                playUrl.append("$$$");
+            }
+            playFrom.append(line.from);
+            playUrl.append(line.url);
         }
 
         vod.put("vod_play_from", playFrom.toString());
@@ -721,9 +780,9 @@ public class Wogg extends Spider {
         if (rawStreamUrl.isEmpty() || !rawStreamUrl.startsWith("http")) {
             if (id.startsWith("quark::")) {
                 if (!QuarkApi.get().hasCookie()) {
-                    NotifyToast.show("请在【配置中心】扫码或配置夸克网盘账号后播放");
+                    NotifyToast.show("请在【配置中心】扫码配置夸克网盘，或切换【百度原画】播放");
                 } else {
-                    NotifyToast.show("夸克网盘解析失败，该资源可能已被限制或失效");
+                    NotifyToast.show("夸克网盘解析失败，可切换【百度原画】线路播放");
                 }
             } else if (id.startsWith("ali::")) {
                 NotifyToast.show("阿里云盘解析失败，请在【配置中心】检查配置");
