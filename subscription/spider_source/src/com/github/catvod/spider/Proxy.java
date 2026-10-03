@@ -1,7 +1,5 @@
 package com.github.catvod.spider;
 
-import android.text.TextUtils;
-
 import com.github.catvod.proxy.GoProxy;
 import com.github.catvod.proxy.NetdiskStream;
 
@@ -22,7 +20,7 @@ public class Proxy {
         if (params == null || params.isEmpty()) return null;
 
         String targetUrl = params.get("url");
-        if (TextUtils.isEmpty(targetUrl)) return null;
+        if (targetUrl == null || targetUrl.trim().isEmpty()) return null;
 
         try {
             targetUrl = URLDecoder.decode(targetUrl, "UTF-8");

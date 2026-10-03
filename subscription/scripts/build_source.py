@@ -143,6 +143,15 @@ def build():
             json.dump(acc_data, f, ensure_ascii=False, indent=2)
         print(f"[+] accelerated.json generated ({len(acc_data.get('sites', []))} sites)")
 
+        # 6.2 Process accelerated_open.json & open.json (100% Open Source Spider)
+        acc_open_data = json.loads(json.dumps(acc_data))
+        acc_open_data["spider"] = spider_open_url
+        with open(DIST_DIR / "accelerated_open.json", "w", encoding="utf-8") as f:
+            json.dump(acc_open_data, f, ensure_ascii=False, indent=2)
+        with open(DIST_DIR / "open.json", "w", encoding="utf-8") as f:
+            json.dump(acc_open_data, f, ensure_ascii=False, indent=2)
+        print(f"[+] accelerated_open.json & open.json generated ({len(acc_open_data.get('sites', []))} sites)")
+
     # 7. Generate Landing Page
     html_content = f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -239,13 +248,19 @@ def build():
                         <button class="btn-copy ms-2" onclick="copyText('url2')"><i class="fa-regular fa-copy me-1"></i>复制</button>
                     </div>
 
-                    <label class="form-label text-light fw-bold">3. 🌐 精简核心源 (17 核心精品站点)</label>
+                    <label class="form-label text-light fw-bold">3. 🌟 纯开源原生源 (100% Java 开源 Spider · 扫码配置+分集直解)</label>
+                    <div class="code-box mb-4">
+                        <span id="url_open">{cdn_base}/accelerated_open.json</span>
+                        <button class="btn-copy ms-2" onclick="copyText('url_open')"><i class="fa-regular fa-copy me-1"></i>复制</button>
+                    </div>
+
+                    <label class="form-label text-light fw-bold">4. 🌐 精简核心源 (17 核心精品站点)</label>
                     <div class="code-box mb-4">
                         <span id="url3">{cdn_base}/custom.json</span>
                         <button class="btn-copy ms-2" onclick="copyText('url3')"><i class="fa-regular fa-copy me-1"></i>复制</button>
                     </div>
 
-                    <label class="form-label text-light fw-bold">4. 📡 GitHub Pages 官方线路</label>
+                    <label class="form-label text-light fw-bold">5. 📡 GitHub Pages 官方线路</label>
                     <div class="code-box mb-2">
                         <span id="url4">{pages_base}/aiwex.json</span>
                         <button class="btn-copy ms-2" onclick="copyText('url4')"><i class="fa-regular fa-copy me-1"></i>复制</button>

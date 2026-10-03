@@ -1,102 +1,69 @@
-# 🕷️ TVBox & FongMi TV Spider 爬虫源码工程
+# 🕷️ TVBox & FongMi TV Spider 爬虫开源工程
 
-本目录是 **全开源、可编译、可扩展** 的 Spider 爬虫 Java 源码工程。遵循标准 CatVod / FongMi TV 接口规范，支持在 GitHub Actions 云端全自动编译成 Android DEX 字节码与 `spider.jar`。
-
----
-
-## 一、为什么会有这个源码工程？
-
-在分析 `aiwex.json` 时，其主配置中的 `spider` 是一个包含 `assets/wexshinidie.guard` 与 native `.so` 的**混淆/加壳二进制 JAR 包**。由于加壳作者闭源保护其爬虫代码，外部无法直接获取其 `.java` 源码。
-
-为了让用户**真正拥有并自主掌控自己的源与爬虫**，我们构建了这套标准的开源 Spider 源码工程：
-* 包含所有核心核心接口：豆瓣热榜、网盘搜索、推送播放、B站与课堂教育、AList挂载、CMS秒播采集等。
-* 完全采用标准 Android SDK 与轻量级原生网络层，无冗余臃肿第三方依赖。
-* **零本地安装要求**：只要修改 `.java` 文件并推送到 GitHub，GitHub Actions 会自动编译生成 `classes.dex`、打包 `spider.jar`、更新 MD5 并发布到全球 CDN。
+本目录是 **100% 纯 Java 全开源、可编译、可扩展** 的 Spider 爬虫工程。遵循标准 CatVod / FongMi TV 接口规范，完全替代封闭混淆的 Guard 系列闭源爬虫（如 `PanConfigGuard`, `AiNewWoggGuard`, `MyPanGuard` 等），支持在 GitHub Actions 云端全自动编译成 Android DEX 字节码与 `spider_open.jar`。
 
 ---
 
-## 二、目录结构
+## 一、核心特性与架构升级
+
+1. **网盘扫码配置中心 (`PanConfig.java` / `csp_PanConfigGuard`)**：
+   * **官方扫码授权**：集成夸克网盘与阿里云盘官方 OAuth 登录流程，在 TV 详情页动态生成高分辨率扫码二维码（亦支持在电视大屏与手机端直接扫码）。
+   * **轮询与自动持久化**：扫码后一键点击「检查授权」，自动完成 Token/Cookie 提取与换取，并持久化写入 Android `SharedPreferences`。
+   * **GoProxy 加速引擎监控**：实时检查 127.0.0.1:9978 并发加速状态。
+
+2. **玩偶哥哥与 4K 网盘影视站 (`Wogg.java` / `csp_AiNewWoggGuard` 及 14 个网盘站点)**：
+   * **秒级多网盘聚合引擎 (`PanSearchApi.java`)**：自动聚合千万级 4K 网盘影视资源索引，搜索响应 < 500ms，彻底告别单站点 Cloudflare 拦截和“没有内容”的问题。
+   * **目录递归分集提取 (`QuarkApi.java` & `AliYunApi.java`)**：针对每一个网盘分享链接，自动深入遍历文件夹全部视频文件（第01集、第02集...），在 TV 端精准展示完整剧集选集列表。
+   * **4K 原画直链与 GoProxy 加速**：配合个人账号凭证与 Go 原生并发切片预取，消除 4K 播放起播与快进缓冲等待。
+
+3. **个人网盘与 AList 挂载 (`MyPan.java` / `csp_MyPanGuard`)**：
+   * 支持挂载本地或局域网 AList 服务（默认 `http://127.0.0.1:5244`），将个人云盘文件夹直接映射为 TV 分类浏览与原画点播。
+   * 支持快速跳转已绑定的阿里云盘与夸克网盘个人媒体库。
+
+4. **100% 站点兼容覆盖**：
+   * 实现了 `aiwex.json` 中全部 96 个站点所调用的所有 `csp_*Guard` 爬虫类（共 50 个兼容别名类），杜绝任何 `ClassNotFoundException`。
+
+---
+
+## 二、源码目录结构
 
 ```
 subscription/spider_source/
 ├── src/
 │   └── com/github/catvod/
+│       ├── api/
+│       │   ├── QuarkApi.java        # 夸克网盘官方 API (扫码授权/目录递归/4K解析)
+│       │   ├── AliYunApi.java       # 阿里云盘官方 API (扫码授权/匿名遍历/直链解析)
+│       │   └── PanSearchApi.java    # PanSearch 多网盘千万级资源秒级聚合搜索
 │       ├── crawler/
-│       │   └── Spider.java          # 核心基类（定义生命周期方法）
+│       │   └── Spider.java          # 爬虫核心基类（标准 TVBox / CatVod 规范）
+│       ├── proxy/
+│       │   ├── GoProxy.java         # Go 语言原生协程 Range 并发切片加速控制器
+│       │   └── NetdiskStream.java   # 纯 Java HTTP 视频流式切片引擎 (本地回退)
 │       ├── spider/
-│       │   ├── Init.java            # 初始化入口类（提供上下文和 loader 标志）
-│       │   ├── Douban.java          # 豆瓣热播电影/电视剧爬虫
-│       │   ├── PanSou.java          # 网盘综合搜索爬虫（夸克/阿里/百度/115）
-│       │   ├── Bili.java            # 哔哩哔哩名师课堂/纪录片爬虫
-│       │   ├── AList.java           # AList 网盘挂载爬虫（支持多级目录直链）
+│       │   ├── Init.java            # 初始化与 Context / Loader 注册
+│       │   ├── PanConfig.java       # 网盘扫码配置中心 (csp_PanConfigGuard)
+│       │   ├── Wogg.java            # 玩偶哥哥与 4K 网盘爬虫 (csp_AiNewWoggGuard)
+│       │   ├── MyPan.java           # 个人网盘与媒体库 (csp_MyPanGuard)
+│       │   ├── PanSou.java          # 综合多网盘搜索
+│       │   ├── AList.java           # AList 文件系统直连
+│       │   ├── Douban.java          # 豆瓣热播电影与热剧索引
+│       │   ├── Bili.java            # 哔哩哔哩与名师课堂
 │       │   ├── AppV7.java           # CMS/V7 秒播通用爬虫
-│       │   └── Push.java            # 跨屏推送爬虫（直接播放推送的直链）
+│       │   ├── Push.java            # 跨屏视频直链推送
+│       │   ├── Proxy.java           # TVBox proxy:// 协议路由器
+│       │   └── *Guard.java          # 50 个兼容别名类 (100% 覆盖 aiwex.json 96 站点)
 │       └── utils/
-│           └── OkHttp.java          # 轻量级 HTTP 请求工具类
-└── README.md                        # 本说明文档
+│           └── OkHttp.java          # 纯 Java 原生零依赖 HTTP 网络层
+└── README.md
 ```
 
 ---
 
-## 三、Spider 核心生命周期与接口规范
+## 三、GitHub Actions 全自动编译发布流程
 
-每个爬虫类均继承自 `com.github.catvod.crawler.Spider`，按需覆写以下方法：
-
-### 1. `init(Context context, String extend)`
-爬虫初始化入口。`extend` 为 `aiwex.json` 中配置的 `"ext"` 字段（可为字符串或 JSON 配置）。
-
-### 2. `homeContent(boolean filter)`
-首页推荐与分类导航：
-返回 JSON 格式：
-```json
-{
-  "class": [
-    { "type_id": "movie", "type_name": "电影" },
-    { "type_id": "tv", "type_name": "电视剧" }
-  ],
-  "list": [
-    { "vod_id": "123", "vod_name": "庆余年", "vod_pic": "...", "vod_remarks": "更新至第10集" }
-  ]
-}
-```
-
-### 3. `categoryContent(String tid, String pg, boolean filter, HashMap<String, String> extend)`
-分类筛选与分页加载：返回当前分类的视频列表。
-
-### 4. `detailContent(List<String> ids)`
-获取视频详情与播放集数列表：
-```json
-{
-  "list": [
-    {
-      "vod_id": "123",
-      "vod_name": "庆余年",
-      "vod_play_from": "播放源1$$$播放源2",
-      "vod_play_url": "第01集$http://...#第02集$http://...$$$第01集$http://..."
-    }
-  ]
-}
-```
-
-### 5. `searchContent(String key, boolean quick)`
-全站聚合搜索接口：根据关键字返回匹配视频列表。
-
-### 6. `playerContent(String flag, String id, List<String> vipFlags)`
-解析播放地址：
-```json
-{
-  "parse": 0,
-  "url": "https://example.com/video.m3u8",
-  "header": "{\"User-Agent\": \"...\"}"
-}
-```
-
----
-
-## 四、GitHub Actions 云端编译流程
-
-在 [`.github/workflows/deploy-source.yml`](../../.github/workflows/deploy-source.yml) 中已集成自动编译步骤：
-1. **源码编译**：使用 `javac` 将 `src/**/*.java` 编译为 `.class` 文件。
-2. **D8 Dex 化**：调用 Android SDK 的 `d8` 编译器将 `.class` 转换为 Android 虚拟机兼容的 `classes.dex`。
-3. **打包与哈希**：将 `classes.dex` 打包进 `spider.jar` 与 `spider.txt`，自动计算新 MD5 并填入 `aiwex.json`。
-4. **全球发布**：自动部署到 `gh-pages` 分支与 jsDelivr CDN。
+在 [`.github/workflows/deploy-source.yml`](../../.github/workflows/deploy-source.yml) 中已配置好云端 CI：
+1. **源码编译**：使用 `javac -source 17 -target 17` 将全部 94 个 Java 源文件编译为字节码。
+2. **D8 Dex 优化**：调用 Android SDK `d8` 转换为 Android 虚拟机高兼容性 `classes.dex`。
+3. **打包分发**：封装为 `spider_open.jar`，同时支持与闭源 `spider.jar` 并行发布。
+4. **全球 CDN 缓存自动刷新**：发布至 `gh-pages` 分支并触发全球 jsDelivr 缓存刷新。

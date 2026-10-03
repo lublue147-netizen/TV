@@ -71,7 +71,7 @@ jobs:
           echo "=== Purging jsDelivr CDN Cache ==="
           REPO="${{ github.repository }}"
           sleep 5
-          for file in accelerated.json aiwex.json custom.json index.json token.json spider.txt spider.jar index.html live/iptv.m3u; do
+          for file in accelerated.json accelerated_open.json open.json aiwex.json custom.json index.json token.json spider.txt spider.jar spider_open.txt spider_open.jar index.html live/iptv.m3u; do
             echo "Purging ${file}..."
             curl -s "https://purge.jsdelivr.net/gh/${REPO}@gh-pages/${file}" || true
           done

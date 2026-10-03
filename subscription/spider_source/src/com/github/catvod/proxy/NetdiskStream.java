@@ -1,6 +1,5 @@
 package com.github.catvod.proxy;
 
-import android.text.TextUtils;
 import android.util.Log;
 
 import java.io.InputStream;
@@ -31,14 +30,14 @@ public class NetdiskStream {
             int code = conn.getResponseCode();
             if (code >= 300 && code < 400) {
                 String redirectUrl = conn.getHeaderField("Location");
-                if (!TextUtils.isEmpty(redirectUrl)) {
+                if (redirectUrl != null && !redirectUrl.isEmpty()) {
                     conn.disconnect();
                     return stream(redirectUrl, requestHeaders);
                 }
             }
 
             String contentType = conn.getContentType();
-            if (TextUtils.isEmpty(contentType)) {
+            if (contentType == null || contentType.isEmpty()) {
                 contentType = "video/mp4";
             }
 
@@ -84,7 +83,7 @@ public class NetdiskStream {
 
         if (customHeaders != null) {
             for (Map.Entry<String, String> entry : customHeaders.entrySet()) {
-                if (!TextUtils.isEmpty(entry.getKey()) && !TextUtils.isEmpty(entry.getValue())) {
+                if (entry.getKey() != null && !entry.getKey().isEmpty() && entry.getValue() != null && !entry.getValue().isEmpty()) {
                     conn.setRequestProperty(entry.getKey(), entry.getValue());
                 }
             }

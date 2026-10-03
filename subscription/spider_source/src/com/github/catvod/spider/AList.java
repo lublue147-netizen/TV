@@ -62,7 +62,7 @@ public class AList extends Spider {
                         vod.put("vod_name", (isDir ? "📁 " : "🎬 ") + name);
                         vod.put("vod_tag", isDir ? "folder" : "file");
                         vod.put("vod_pic", isDir ? "https://img.icons8.com/color/480/folder-invoices.png" : "https://img.icons8.com/color/480/video-file.png");
-                        vod.put("vod_remarks", isDir ? "目录" : humanSize(item.optLong("size")));
+                        vod.put("vod_remarks", isDir ? "目录" : humanSize(item.optLong("size", 0L)));
                         list.put(vod);
                     }
                 }

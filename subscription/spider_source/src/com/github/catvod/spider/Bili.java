@@ -72,7 +72,7 @@ public class Bili extends Spider {
                     for (int i = 0; i < pages.length(); i++) {
                         JSONObject p = pages.getJSONObject(i);
                         if (i > 0) playUrls.append("#");
-                        playUrls.append(p.optString("part")).append("$").append(bvid).append("?cid=").append(p.optLong("cid"));
+                        playUrls.append(p.optString("part")).append("$").append(bvid).append("?cid=").append(p.optLong("cid", 0L));
                     }
                 }
                 vod.put("vod_play_from", "B站高清");
