@@ -18,6 +18,36 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Release Tag
+        id: get_tag
+        run: |
+          echo "=== Determining Release Tag ==="
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${{ github.ref_name }}"
+            echo "Building from pushed tag: $TAG"
+          else
+            git fetch --tags || true
+            LATEST_TAG=$(git tag -l "v*" | sort -V | tail -n 1)
+            if [ -z "$LATEST_TAG" ]; then
+              TAG="v1.0.4"
+            else
+              MAJOR=$(echo "$LATEST_TAG" | cut -d. -f1)
+              MINOR=$(echo "$LATEST_TAG" | cut -d. -f2)
+              PATCH=$(echo "$LATEST_TAG" | cut -d. -f3)
+              NEXT_PATCH=$((PATCH + 1))
+              TAG="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+            fi
+            echo "Auto-incremented release tag: $TAG"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag "$TAG"
+            git push origin "$TAG" || true
+          fi
+          echo "RELEASE_TAG=$TAG" >> $GITHUB_ENV
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -125,6 +155,7 @@ jobs:
       - name: Build Subscription Distributions & Web Portal
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
           python3 scripts/build_source.py
 
@@ -134,16 +165,19 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist_source
           publish_branch: gh-pages
-          force_orphan: true
+          keep_files: true
 
       - name: Purge jsDelivr CDN Cache
         run: |
           echo "=== Purging jsDelivr CDN Cache ==="
           REPO="${{ github.repository }}"
+          TAG="${{ env.RELEASE_TAG }}"
           sleep 5
           for file in accelerated.json accelerated_open.json open.json aiwex.json custom.json index.json token.json spider.txt spider.jar spider_open.txt spider_open.jar index.html live/iptv.m3u; do
-            echo "Purging ${file}..."
+            echo "Purging root ${file}..."
             curl -s "https://purge.jsdelivr.net/gh/${REPO}@gh-pages/${file}" || true
+            echo "Purging ${TAG}/${file}..."
+            curl -s "https://purge.jsdelivr.net/gh/${REPO}@gh-pages/${TAG}/${file}" || true
           done
           echo "=== jsDelivr Cache Purge Completed ==="
 
@@ -151,23 +185,34 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && format('TVBox / FongMi 影视源与 GoProxy 网盘加速器 {0} 正式版', github.ref_name) || 'TVBox / FongMi 影视源与 GoProxy 网盘加速器 v1.0.0 正式版' }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: TVBox / FongMi 影视源与 GoProxy 网盘加速器 ${{ env.RELEASE_TAG }} 正式版
           body: |
-            ### 🚀 TVBox / FongMi 影视源与网盘加速代理 v1.0.0 正式版发布
-            - **全功能聚合源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/aiwex.json`
-            - **网盘加速极速源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/accelerated.json`
+            ### 🚀 TVBox / FongMi 影视源与网盘加速代理 ${{ env.RELEASE_TAG }} 正式版发布
+
+            #### 📌 本版本专属固定订阅链接 (多版本共存 · 永久有效不随更新变更)：
+            - **开源原生极速源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/${{ env.RELEASE_TAG }}/accelerated_open.json`
+            - **全功能聚合源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/${{ env.RELEASE_TAG }}/aiwex.json`
+            - **精简核心源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/${{ env.RELEASE_TAG }}/custom.json`
+            - **GitHub Pages 线路**: `https://${{ github.repository_owner }}.github.io/subscription/${{ env.RELEASE_TAG }}/accelerated_open.json`
+
+            #### 🔄 最新动态订阅链接 (自动跟随最新版本更新)：
             - **开源原生极速源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/accelerated_open.json`
+            - **全功能聚合源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/aiwex.json`
             - **精简核心源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/custom.json`
             - **直播源**: `https://cdn.jsdelivr.net/gh/${{ github.repository }}@gh-pages/live/iptv.m3u`
 
-            #### 🌟 v1.0.0 核心特性：
+            #### 🌟 ${{ env.RELEASE_TAG }} 核心特性：
+            - **多版本持久化隔离**: 每次发布均打独立不可覆盖的语义化 Tag，并在 `gh-pages` 与 GitHub Releases 永久归档，保证各个历史版本的订阅链接持续可用。
             - **Go / SO 网盘并发加速引擎 (GoProxy)**: 针对夸克、阿里、115等网盘多协程 Range 并发分块预加载，秒播 4K 蓝光高码率原盘。
             - **100% 纯 Java 开源 Spider (spider_open.jar)**: 内置纯本地离线扫码二维码生成引擎、后台自动轮询登录、局域网 Web 控制台 (9979端口) 以及千万级 PanSearch 多网盘秒搜。
-            - **全自动 CI/CD 构建发布**: GitHub Actions 自动交叉编译 Go/SO、Android D8 转 DEX，一键同步部署 GitHub Pages、Releases 与 jsDelivr CDN。
 
             #### 包含附件：
+            - `accelerated_open.json`: 纯开源原生源订阅配置 (DEX Spider)
+            - `aiwex.json`: 全功能聚合源订阅配置
+            - `custom.json`: 精简核心源订阅配置
             - `spider_open.jar`: 纯开源网盘扫码配置与 4K 秒搜爬虫 (DEX 打包)
+            - `spider.jar`: 增强型全能爬虫
             - `goproxy-android-arm64`: 适用于 Android 64位智能电视盒子的后台加速守护进程
             - `goproxy-android-armv7`: 适用于 32位老款盒子的后台加速守护进程
             - `libgoproxy.so`: Android JNI 原生动态链接库
@@ -179,6 +224,12 @@ jobs:
           files: |
             spider/spider.jar
             spider/spider_open.jar
+            dist_source/accelerated_open.json
+            dist_source/accelerated.json
+            dist_source/aiwex.json
+            dist_source/custom.json
+            dist_source/index.json
+            dist_source/token.json
             goproxy/bin/goproxy-android-arm64
             goproxy/bin/goproxy-android-armv7
             goproxy/bin/goproxy-linux-amd64
@@ -193,16 +244,18 @@ jobs:
           REPO="${{ github.repository }}"
           OWNER="${{ github.repository_owner }}"
           REPO_NAME="${REPO#*/}"
-          PAGES_URL="https://${OWNER}.github.io/${REPO_NAME}/aiwex.json"
-          CDN_URL="https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/aiwex.json"
-          ACC_URL="https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/accelerated.json"
+          TAG="${{ env.RELEASE_TAG }}"
+          PAGES_URL="https://${OWNER}.github.io/${REPO_NAME}/${TAG}/accelerated_open.json"
+          CDN_VER_URL="https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/${TAG}/accelerated_open.json"
+          CDN_LATEST_URL="https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/accelerated_open.json"
 
-          echo "### 🚀 TVBox / FongMi 影视源与 GoProxy 加速引擎构建发布成功！" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 TVBox / FongMi 影视源与 GoProxy 加速引擎 ${TAG} 发布成功！" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| 接口类型 | 订阅配置链接 |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🚀 **全功能聚合源 (jsDelivr CDN)** | \`${CDN_URL}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| ⚡ **网盘加速极速源 (Go/SO 加速)** | \`${ACC_URL}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🌐 **精简核心源 (17 站点)** | \`https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/custom.json\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📡 **GitHub Pages 官方线路** | \`${PAGES_URL}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📺 **高清直播源 (IPTV M3U)** | \`https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/live/iptv.m3u\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📌 **本版本专属开源源 (${TAG})** | \`${CDN_VER_URL}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔄 **最新动态开源源 (自动跟新)** | \`${CDN_LATEST_URL}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🚀 **全功能聚合源 (${TAG})** | \`https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/${TAG}/aiwex.json\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🌐 **精简核心源 (${TAG})** | \`https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/${TAG}/custom.json\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📡 **GitHub Pages 线路** | \`${PAGES_URL}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📺 **高清直播源 (IPTV M3U)** | \`https://cdn.jsdelivr.net/gh/${REPO}@gh-pages/${TAG}/live/iptv.m3u\` |" >> $GITHUB_STEP_SUMMARY
