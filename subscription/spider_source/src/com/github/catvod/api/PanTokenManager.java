@@ -27,6 +27,8 @@ public class PanTokenManager {
     private String quarkCookie = "";
     private String aliRefreshToken = "";
     private String aliAccessToken = "";
+    private String baiduCookie = "";
+    private String ucCookie = "";
 
     public static PanTokenManager get() {
         if (instance == null) {
@@ -52,14 +54,18 @@ public class PanTokenManager {
                 String q = sp.getString("quark_cookie", "");
                 String a = sp.getString("ali_token", "");
                 String aAcc = sp.getString("ali_access_token", "");
+                String b = sp.getString("baidu_cookie", "");
+                String u = sp.getString("uc_cookie", "");
                 if (!q.isEmpty()) this.quarkCookie = q.trim();
                 if (!a.isEmpty()) this.aliRefreshToken = a.trim();
                 if (!aAcc.isEmpty()) this.aliAccessToken = aAcc.trim();
+                if (!b.isEmpty()) this.baiduCookie = b.trim();
+                if (!u.isEmpty()) this.ucCookie = u.trim();
             }
         } catch (Throwable ignored) {}
 
         // 2. 本地文件回退
-        if (this.quarkCookie.isEmpty() || this.aliRefreshToken.isEmpty()) {
+        if (this.quarkCookie.isEmpty() || this.aliRefreshToken.isEmpty() || this.baiduCookie.isEmpty() || this.ucCookie.isEmpty()) {
             loadFileFallback();
         }
     }
@@ -82,6 +88,12 @@ public class PanTokenManager {
                         if (this.aliRefreshToken.isEmpty()) {
                             this.aliRefreshToken = json.optString("ali_token", json.optString("token", json.optString("ali", ""))).trim();
                         }
+                        if (this.baiduCookie.isEmpty()) {
+                            this.baiduCookie = json.optString("baidu_cookie", json.optString("baidu", "")).trim();
+                        }
+                        if (this.ucCookie.isEmpty()) {
+                            this.ucCookie = json.optString("uc_cookie", json.optString("uc", "")).trim();
+                        }
                     }
                 } catch (Throwable ignored) {}
             }
@@ -98,6 +110,8 @@ public class PanTokenManager {
                     .putString("quark_cookie", this.quarkCookie)
                     .putString("ali_token", this.aliRefreshToken)
                     .putString("ali_access_token", this.aliAccessToken)
+                    .putString("baidu_cookie", this.baiduCookie)
+                    .putString("uc_cookie", this.ucCookie)
                     .apply();
             }
         } catch (Throwable ignored) {}
@@ -114,6 +128,8 @@ public class PanTokenManager {
                     json.put("ali_token", this.aliRefreshToken);
                     json.put("token", this.aliRefreshToken);
                     json.put("ali_access_token", this.aliAccessToken);
+                    json.put("baidu_cookie", this.baiduCookie);
+                    json.put("uc_cookie", this.ucCookie);
                     FileOutputStream fos = new FileOutputStream(f);
                     fos.write(json.toString(2).getBytes(StandardCharsets.UTF_8));
                     fos.flush();
@@ -178,10 +194,40 @@ public class PanTokenManager {
         save();
     }
 
+    public synchronized String getBaiduCookie() {
+        if (baiduCookie.isEmpty()) load();
+        return baiduCookie;
+    }
+
+    public synchronized void setBaiduCookie(String cookie) {
+        this.baiduCookie = cookie != null ? cookie.trim() : "";
+        save();
+    }
+
+    public boolean hasBaiduCookie() {
+        return !getBaiduCookie().isEmpty();
+    }
+
+    public synchronized String getUcCookie() {
+        if (ucCookie.isEmpty()) load();
+        return ucCookie;
+    }
+
+    public synchronized void setUcCookie(String cookie) {
+        this.ucCookie = cookie != null ? cookie.trim() : "";
+        save();
+    }
+
+    public boolean hasUcCookie() {
+        return !getUcCookie().isEmpty();
+    }
+
     public synchronized void clearAll() {
         this.quarkCookie = "";
         this.aliRefreshToken = "";
         this.aliAccessToken = "";
+        this.baiduCookie = "";
+        this.ucCookie = "";
         save();
     }
 }

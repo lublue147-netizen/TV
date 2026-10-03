@@ -2,8 +2,10 @@ package com.github.catvod.spider;
 
 import android.content.Context;
 import com.github.catvod.api.AliYunApi;
+import com.github.catvod.api.BaiduApi;
 import com.github.catvod.api.PanSearchApi;
 import com.github.catvod.api.QuarkApi;
+import com.github.catvod.api.UcApi;
 import com.github.catvod.crawler.Spider;
 import com.github.catvod.proxy.GoProxy;
 import com.github.catvod.utils.OkHttp;
@@ -20,8 +22,8 @@ import java.util.regex.Pattern;
  * 玩偶哥哥 / 玩偶 4K 纯 Java 开源 Spider 爬虫
  * 具备以下特性：
  * 1. 自动聚合 PanSearch 全网网盘搜索引擎与多 Wogg 镜像
- * 2. 深度递归提取 夸克 / 阿里 云盘目录内全部视频分集
- * 3. 对接 GoProxy 多线程并发切片加速，输出 4K 原画直链
+ * 2. 深度递归提取 百度 / 夸克 / UC / 阿里 云盘目录内全部视频分集
+ * 3. 完美展示【百度原画】与【百度无限】（GoProxy 多协程并发切片加速），以及【夸克原画】/【UC原画】/【阿里原画】
  */
 public class Wogg extends Spider {
 
@@ -46,6 +48,21 @@ public class Wogg extends Spider {
 
     private static final Pattern REGEX_QUARK_LINK = Pattern.compile(
         "https?://pan\\.quark\\.cn/s/([a-zA-Z0-9]+)",
+        Pattern.CASE_INSENSITIVE
+    );
+
+    private static final Pattern REGEX_UC_LINK = Pattern.compile(
+        "https?://drive\\.uc\\.cn/s/([a-zA-Z0-9]+)",
+        Pattern.CASE_INSENSITIVE
+    );
+
+    private static final Pattern REGEX_BAIDU_LINK = Pattern.compile(
+        "https?://pan\\.baidu\\.com/s/(?:1)?([a-zA-Z0-9_-]+)",
+        Pattern.CASE_INSENSITIVE
+    );
+
+    private static final Pattern REGEX_BAIDU_PWD = Pattern.compile(
+        "(?:提取码|pwd|密码)[:：\\s]*([a-zA-Z0-9]{4})",
         Pattern.CASE_INSENSITIVE
     );
 
@@ -237,24 +254,21 @@ public class Wogg extends Spider {
         String desc = "极速秒播 4K 原画资源";
 
         Set<String> quarkShareIds = new LinkedHashSet<>();
+        Set<String> ucShareIds = new LinkedHashSet<>();
+        List<String[]> baiduShares = new ArrayList<>(); // [fullUrl, surl, pwd]
         Set<String> aliShareIds = new LinkedHashSet<>();
 
         // 情况 A: vodId 直接是网盘分享链接 (来自 PanSearch)
         if (vodId.startsWith("http://") || vodId.startsWith("https://")) {
-            Matcher mQ = REGEX_QUARK_LINK.matcher(vodId);
-            if (mQ.find()) {
-                quarkShareIds.add(mQ.group(1));
-                title = "夸克4K极速影视";
-            }
-            Matcher mA = REGEX_ALI_LINK.matcher(vodId);
-            if (mA.find()) {
-                aliShareIds.add(mA.group(1));
-                title = "阿里4K原画影视";
-            }
+            extractAllShares(vodId, quarkShareIds, ucShareIds, baiduShares, aliShareIds);
+            if (!baiduShares.isEmpty()) title = "百度4K原画影视";
+            else if (!quarkShareIds.isEmpty()) title = "夸克4K极速影视";
+            else if (!ucShareIds.isEmpty()) title = "UC4K极速影视";
+            else if (!aliShareIds.isEmpty()) title = "阿里4K原画影视";
         }
 
         // 情况 B: vodId 是 Wogg 详情页相对路径或网页 URL
-        if (quarkShareIds.isEmpty() && aliShareIds.isEmpty()) {
+        if (quarkShareIds.isEmpty() && ucShareIds.isEmpty() && baiduShares.isEmpty() && aliShareIds.isEmpty()) {
             String pageUrl = vodId.startsWith("http") ? vodId : (siteUrl + (vodId.startsWith("/") ? "" : "/") + vodId);
             String html = OkHttp.get(pageUrl);
 
@@ -272,9 +286,67 @@ public class Wogg extends Spider {
             // 提取剪贴板与页面所有链接
             Matcher mClip = REGEX_CLIPBOARD.matcher(html);
             while (mClip.find()) {
-                extractShareIds(mClip.group(1), quarkShareIds, aliShareIds);
+                extractAllShares(mClip.group(1), quarkShareIds, ucShareIds, baiduShares, aliShareIds);
             }
-            extractShareIds(html, quarkShareIds, aliShareIds);
+            extractAllShares(html, quarkShareIds, ucShareIds, baiduShares, aliShareIds);
+        }
+
+        String searchKey = cleanSearchKey(title);
+        if (searchKey.isEmpty()) searchKey = "4K";
+
+        // 若 Wogg 详情页面缺少百度资源，自动通过 PanSearch 实时补齐百度网盘原画分享
+        if (baiduShares.isEmpty()) {
+            List<PanSearchApi.Item> bItems = PanSearchApi.searchPan(searchKey, "baidu");
+            for (PanSearchApi.Item bi : bItems) {
+                String[] bInfo = BaiduApi.extractShareInfo(bi.shareUrl);
+                if (bInfo != null) {
+                    boolean exists = false;
+                    for (String[] exist : baiduShares) {
+                        if (exist[1].equals(bInfo[1])) {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists) baiduShares.add(bInfo);
+                    if (baiduShares.size() >= 2) break;
+                }
+            }
+        }
+
+        // 补齐夸克网盘
+        if (quarkShareIds.isEmpty()) {
+            List<PanSearchApi.Item> qItems = PanSearchApi.searchPan(searchKey, "quark");
+            for (PanSearchApi.Item qi : qItems) {
+                Matcher mq = REGEX_QUARK_LINK.matcher(qi.shareUrl);
+                if (mq.find()) {
+                    quarkShareIds.add(mq.group(1));
+                    if (quarkShareIds.size() >= 2) break;
+                }
+            }
+        }
+
+        // 补齐 UC 网盘
+        if (ucShareIds.isEmpty()) {
+            List<PanSearchApi.Item> uItems = PanSearchApi.searchPan(searchKey, "uc");
+            for (PanSearchApi.Item ui : uItems) {
+                Matcher mu = REGEX_UC_LINK.matcher(ui.shareUrl);
+                if (mu.find()) {
+                    ucShareIds.add(mu.group(1));
+                    if (ucShareIds.size() >= 2) break;
+                }
+            }
+        }
+
+        // 补齐阿里云盘
+        if (aliShareIds.isEmpty()) {
+            List<PanSearchApi.Item> aItems = PanSearchApi.searchPan(searchKey, "aliyundrive");
+            for (PanSearchApi.Item ai : aItems) {
+                Matcher ma = REGEX_ALI_LINK.matcher(ai.shareUrl);
+                if (ma.find()) {
+                    aliShareIds.add(ma.group(1));
+                    if (aliShareIds.size() >= 2) break;
+                }
+            }
         }
 
         vod.put("vod_name", title);
@@ -284,55 +356,94 @@ public class Wogg extends Spider {
         StringBuilder playFrom = new StringBuilder();
         StringBuilder playUrl = new StringBuilder();
 
-        // 1. 递归解析夸克网盘目录中的全部剧集
+        // 1. 构建【百度原画】与【百度无限】（突破限速双线路，必须位于前置突出显示）
+        StringBuilder bOrigEp = new StringBuilder();
+        StringBuilder bUnlimitEp = new StringBuilder();
+        for (String[] bInfo : baiduShares) {
+            String sUrl = bInfo[0];
+            String pwd = bInfo[2];
+            List<BaiduApi.FileItem> bFiles = BaiduApi.get().listShareFiles(sUrl, pwd);
+            int idx = 1;
+            for (BaiduApi.FileItem item : bFiles) {
+                if (bOrigEp.length() > 0) {
+                    bOrigEp.append("#");
+                    bUnlimitEp.append("#");
+                }
+                String epName = cleanEpisodeName(item.name, idx);
+                String pOrig = "baidu_orig::" + item.shareUrl + "::" + item.fsId + "::" + item.pwd;
+                String pUnlimit = "baidu_unlimit::" + item.shareUrl + "::" + item.fsId + "::" + item.pwd;
+                bOrigEp.append(epName).append("$").append(pOrig);
+                bUnlimitEp.append(epName).append("$").append(pUnlimit);
+                idx++;
+            }
+        }
+        if (bOrigEp.length() == 0) {
+            String sUrl = !baiduShares.isEmpty() ? baiduShares.get(0)[0] : vodId;
+            bOrigEp.append("4K原画正片$baidu_orig::").append(sUrl).append("::0::");
+            bUnlimitEp.append("4K极速正片$baidu_unlimit::").append(sUrl).append("::0::");
+        }
+
+        playFrom.append("百度原画");
+        playUrl.append(bOrigEp);
+
+        playFrom.append("$$$百度无限");
+        playUrl.append("$$$").append(bUnlimitEp);
+
+        // 2. 构建【夸克原画】
+        StringBuilder qEp = new StringBuilder();
         for (String qId : quarkShareIds) {
             String stoken = QuarkApi.get().getShareToken(qId, "");
             List<QuarkApi.FileItem> qFiles = QuarkApi.get().listShareFiles(qId, stoken);
-
-            if (!qFiles.isEmpty()) {
-                if (playFrom.length() > 0) {
-                    playFrom.append("$$$");
-                    playUrl.append("$$$");
-                }
-                playFrom.append("夸克极速4K");
-                int idx = 1;
-                for (QuarkApi.FileItem item : qFiles) {
-                    if (idx > 1) playUrl.append("#");
-                    String epName = cleanEpisodeName(item.name, idx);
-                    // 存储定位参数供 playerContent 使用
-                    String playParam = "quark::" + qId + "::" + stoken + "::" + item.fid + "::" + item.shareFidToken;
-                    playUrl.append(epName).append("$").append(playParam);
-                    idx++;
-                }
+            int idx = 1;
+            for (QuarkApi.FileItem item : qFiles) {
+                if (qEp.length() > 0) qEp.append("#");
+                String epName = cleanEpisodeName(item.name, idx);
+                String playParam = "quark::" + qId + "::" + stoken + "::" + item.fid + "::" + item.shareFidToken;
+                qEp.append(epName).append("$").append(playParam);
+                idx++;
             }
         }
+        if (qEp.length() > 0) {
+            playFrom.append("$$$夸克原画");
+            playUrl.append("$$$").append(qEp);
+        }
 
-        // 2. 递归解析阿里云盘目录中的全部剧集
+        // 3. 构建【UC原画】
+        StringBuilder ucEp = new StringBuilder();
+        for (String ucId : ucShareIds) {
+            String stoken = UcApi.get().getShareToken(ucId, "");
+            List<UcApi.FileItem> ucFiles = UcApi.get().listShareFiles(ucId, stoken);
+            int idx = 1;
+            for (UcApi.FileItem item : ucFiles) {
+                if (ucEp.length() > 0) ucEp.append("#");
+                String epName = cleanEpisodeName(item.name, idx);
+                String playParam = "uc::" + ucId + "::" + stoken + "::" + item.fid + "::" + item.shareFidToken;
+                ucEp.append(epName).append("$").append(playParam);
+                idx++;
+            }
+        }
+        if (ucEp.length() > 0) {
+            playFrom.append("$$$UC原画");
+            playUrl.append("$$$").append(ucEp);
+        }
+
+        // 4. 构建【阿里原画】
+        StringBuilder aEp = new StringBuilder();
         for (String aId : aliShareIds) {
             String shareToken = AliYunApi.get().getShareToken(aId, "");
             List<AliYunApi.FileItem> aFiles = AliYunApi.get().listShareFiles(aId, shareToken);
-
-            if (!aFiles.isEmpty()) {
-                if (playFrom.length() > 0) {
-                    playFrom.append("$$$");
-                    playUrl.append("$$$");
-                }
-                playFrom.append("阿里原画4K");
-                int idx = 1;
-                for (AliYunApi.FileItem item : aFiles) {
-                    if (idx > 1) playUrl.append("#");
-                    String epName = cleanEpisodeName(item.name, idx);
-                    String playParam = "ali::" + aId + "::" + shareToken + "::" + item.fileId;
-                    playUrl.append(epName).append("$").append(playParam);
-                    idx++;
-                }
+            int idx = 1;
+            for (AliYunApi.FileItem item : aFiles) {
+                if (aEp.length() > 0) aEp.append("#");
+                String epName = cleanEpisodeName(item.name, idx);
+                String playParam = "ali::" + aId + "::" + shareToken + "::" + item.fileId;
+                aEp.append(epName).append("$").append(playParam);
+                idx++;
             }
         }
-
-        // 3. 兜底播放来源，避免出现“没有内容”
-        if (playFrom.length() == 0) {
-            playFrom.append("极速播放");
-            playUrl.append("原画播放$").append(vodId);
+        if (aEp.length() > 0) {
+            playFrom.append("$$$阿里原画");
+            playUrl.append("$$$").append(aEp);
         }
 
         vod.put("vod_play_from", playFrom.toString());
@@ -345,6 +456,12 @@ public class Wogg extends Spider {
 
     @Override
     public String playerContent(String flag, String id, List<String> vipFlags) throws Exception {
+        if (id.startsWith("baidu_") || (flag != null && flag.contains("百度"))) {
+            return BaiduApi.get().getPlayerContent(flag, id).toString();
+        } else if (id.startsWith("uc::") || (flag != null && flag.contains("UC"))) {
+            return UcApi.get().getPlayerContent(id).toString();
+        }
+
         JSONObject result = new JSONObject();
         result.put("parse", 0);
         result.put("playUrl", "");
@@ -394,16 +511,51 @@ public class Wogg extends Spider {
         return result.toString();
     }
 
-    private void extractShareIds(String text, Set<String> quark, Set<String> ali) {
-        if (text == null) return;
+    private void extractAllShares(String text, Set<String> quark, Set<String> uc, List<String[]> baidu, Set<String> ali) {
+        if (text == null || text.isEmpty()) return;
+
         Matcher mQ = REGEX_QUARK_LINK.matcher(text);
         while (mQ.find()) {
             quark.add(mQ.group(1));
         }
+
+        Matcher mU = REGEX_UC_LINK.matcher(text);
+        while (mU.find()) {
+            uc.add(mU.group(1));
+        }
+
         Matcher mA = REGEX_ALI_LINK.matcher(text);
         while (mA.find()) {
             ali.add(mA.group(1));
         }
+
+        Matcher mB = REGEX_BAIDU_LINK.matcher(text);
+        while (mB.find()) {
+            String surl = mB.group(1);
+            String fullUrl = "https://pan.baidu.com/s/1" + surl;
+            String pwd = "";
+            int start = mB.start();
+            int end = Math.min(text.length(), mB.end() + 60);
+            String snippet = text.substring(start, end);
+            Matcher mPwd = REGEX_BAIDU_PWD.matcher(snippet);
+            if (mPwd.find()) pwd = mPwd.group(1).trim();
+
+            boolean exists = false;
+            for (String[] exist : baidu) {
+                if (exist[1].equals(surl)) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                baidu.add(new String[]{fullUrl, surl, pwd});
+            }
+        }
+    }
+
+    private String cleanSearchKey(String title) {
+        if (title == null) return "";
+        return title.replaceAll("\\(.*?\\)|\\[.*?\\]|第.*?季|4K|1080P|HD|BD|\\s+", " ").trim();
     }
 
     private String cleanEpisodeName(String rawName, int fallbackIndex) {

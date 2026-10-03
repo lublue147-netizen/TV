@@ -59,13 +59,16 @@ public class PanConfig extends Spider {
         String localIp = PanWebServer.getLocalIp();
         int port = PanWebServer.getPort();
 
-        // 1. 阿里云盘扫码配置
-        JSONObject ali = new JSONObject();
-        ali.put("vod_id", "ali_config");
-        ali.put("vod_name", "🐮 阿里云盘·扫码配置");
-        ali.put("vod_pic", "https://img.icons8.com/color/480/alipay.png");
-        ali.put("vod_remarks", aliAuthed ? "✅ 已授权配置 (4K秒播)" : "❌ 未配置·点击扫码绑定");
-        list.put(ali);
+        boolean baiduAuthed = PanTokenManager.get().hasBaiduCookie();
+        boolean ucAuthed = PanTokenManager.get().hasUcCookie();
+
+        // 1. 百度网盘配置
+        JSONObject baidu = new JSONObject();
+        baidu.put("vod_id", "baidu_config");
+        baidu.put("vod_name", "🐮 百度网盘·配置中心 (原画与无限)");
+        baidu.put("vod_pic", "https://img.icons8.com/color/480/baidu.png");
+        baidu.put("vod_remarks", baiduAuthed ? "✅ 已配置 (4K原画+无限加速)" : "❌ 未配置·通过网页极速输入");
+        list.put(baidu);
 
         // 2. 夸克网盘扫码配置
         JSONObject quark = new JSONObject();
@@ -75,7 +78,23 @@ public class PanConfig extends Spider {
         quark.put("vod_remarks", quarkAuthed ? "✅ 已授权配置 (4K原画)" : "❌ 未配置·点击扫码绑定");
         list.put(quark);
 
-        // 3. 局域网网页极速配置
+        // 3. UC网盘配置
+        JSONObject uc = new JSONObject();
+        uc.put("vod_id", "uc_config");
+        uc.put("vod_name", "🐮 UC 网盘·配置中心");
+        uc.put("vod_pic", "https://img.icons8.com/color/480/uc-browser.png");
+        uc.put("vod_remarks", ucAuthed ? "✅ 已配置 (4K秒播)" : "❌ 未配置·通过网页极速输入");
+        list.put(uc);
+
+        // 4. 阿里云盘扫码配置
+        JSONObject ali = new JSONObject();
+        ali.put("vod_id", "ali_config");
+        ali.put("vod_name", "🐮 阿里云盘·扫码配置");
+        ali.put("vod_pic", "https://img.icons8.com/color/480/alipay.png");
+        ali.put("vod_remarks", aliAuthed ? "✅ 已授权配置 (4K秒播)" : "❌ 未配置·点击扫码绑定");
+        list.put(ali);
+
+        // 5. 局域网网页极速配置
         JSONObject web = new JSONObject();
         web.put("vod_id", "web_config");
         web.put("vod_name", "🌐 局域网网页极速配置中心");
@@ -222,6 +241,38 @@ public class PanConfig extends Spider {
             vod.put("vod_play_from", "网页配置中心");
             vod.put("vod_play_url", "检查局域网服务状态$web_status");
 
+        } else if ("baidu_config".equals(id)) {
+            boolean authed = PanTokenManager.get().hasBaiduCookie();
+            vod.put("vod_name", "🐮 百度网盘·配置中心 (原画与无限)");
+            String qrBmp = QrUtil.createDataUri(webUrl);
+            vod.put("vod_pic", !qrBmp.isEmpty() ? qrBmp : "https://img.icons8.com/color/480/baidu.png");
+
+            StringBuilder content = new StringBuilder();
+            content.append("【百度网盘·配置说明】\n");
+            content.append("1. 在手机或电脑浏览器打开局域网配置中心：").append(webUrl).append("\n");
+            content.append("2. 输入百度 Cookie 或 BDUSS 即可完成配置，支持 4K 原画直连与 GoProxy 并发切片无限加速！\n\n");
+            content.append("当前凭证状态：").append(authed ? "✅ 已配置 (生效中·原画+无限加速已激活)" : "❌ 尚未配置");
+            vod.put("vod_content", content.toString());
+
+            vod.put("vod_play_from", "百度网盘配置中心");
+            vod.put("vod_play_url", "【1. 查看当前凭证状态】$baidu_status#【2. 清除百度网盘凭证】$baidu_clear");
+
+        } else if ("uc_config".equals(id)) {
+            boolean authed = PanTokenManager.get().hasUcCookie();
+            vod.put("vod_name", "🐮 UC 网盘·配置中心");
+            String qrBmp = QrUtil.createDataUri(webUrl);
+            vod.put("vod_pic", !qrBmp.isEmpty() ? qrBmp : "https://img.icons8.com/color/480/uc-browser.png");
+
+            StringBuilder content = new StringBuilder();
+            content.append("【UC 网盘·配置说明】\n");
+            content.append("1. 在手机或电脑浏览器打开局域网配置中心：").append(webUrl).append("\n");
+            content.append("2. 粘贴 UC 网盘 Cookie 点击保存即可，即刻享受 4K 秒播！\n\n");
+            content.append("当前凭证状态：").append(authed ? "✅ 已配置 (生效中·4K秒播已激活)" : "❌ 尚未配置");
+            vod.put("vod_content", content.toString());
+
+            vod.put("vod_play_from", "UC网盘配置中心");
+            vod.put("vod_play_url", "【1. 查看当前凭证状态】$uc_status#【2. 清除UC网盘凭证】$uc_clear");
+
         } else if ("goproxy_status".equals(id)) {
             boolean alive = GoProxy.isAlive();
             vod.put("vod_name", "🚀 GoProxy 极速加速引擎运行状态");
@@ -322,6 +373,18 @@ public class PanConfig extends Spider {
                     msg = "⚠️ 二维码已失效，请退出并重新进入本页面刷新。";
                 }
             }
+        } else if ("baidu_status".equals(id)) {
+            boolean has = PanTokenManager.get().hasBaiduCookie();
+            msg = has ? "✅ 百度网盘已配置有效 (原画+无限加速)！" : "❌ 百度网盘未配置，请打开局域网网页输入。";
+        } else if ("uc_status".equals(id)) {
+            boolean has = PanTokenManager.get().hasUcCookie();
+            msg = has ? "✅ UC网盘已配置有效 (4K秒播)！" : "❌ UC网盘未配置，请打开局域网网页输入。";
+        } else if ("baidu_clear".equals(id)) {
+            PanTokenManager.get().setBaiduCookie("");
+            msg = "🗑️ 百度网盘本地凭证已清除。";
+        } else if ("uc_clear".equals(id)) {
+            PanTokenManager.get().setUcCookie("");
+            msg = "🗑️ UC网盘本地凭证已清除。";
         } else if ("ali_status".equals(id)) {
             boolean has = PanTokenManager.get().hasAliRefreshToken();
             msg = has ? "✅ 阿里云盘已配置有效！" : "❌ 阿里云盘未配置，请扫码。";

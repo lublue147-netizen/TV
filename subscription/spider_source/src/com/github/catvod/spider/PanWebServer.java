@@ -169,6 +169,12 @@ public class PanWebServer {
                 PanTokenManager.get().setAliRefreshToken(val);
                 AliYunApi.get().refreshAccessToken();
                 NotifyToast.show("✅ 手机端已更新阿里云盘配置！");
+            } else if ("baidu".equalsIgnoreCase(type)) {
+                PanTokenManager.get().setBaiduCookie(val);
+                NotifyToast.show("✅ 手机端已更新百度网盘配置！");
+            } else if ("uc".equalsIgnoreCase(type)) {
+                PanTokenManager.get().setUcCookie(val);
+                NotifyToast.show("✅ 手机端已更新UC网盘配置！");
             }
             sendJson(os, "{\"code\": 200, \"message\": \"保存成功！电视端已同步生效。\"}");
         } else if ("/clear".equals(path)) {
@@ -178,7 +184,9 @@ public class PanWebServer {
         } else if ("/status".equals(path)) {
             boolean q = PanTokenManager.get().hasQuarkCookie();
             boolean a = PanTokenManager.get().hasAliRefreshToken();
-            sendJson(os, "{\"quark\": " + q + ", \"ali\": " + a + "}");
+            boolean b = PanTokenManager.get().hasBaiduCookie();
+            boolean u = PanTokenManager.get().hasUcCookie();
+            sendJson(os, "{\"quark\": " + q + ", \"ali\": " + a + ", \"baidu\": " + b + ", \"uc\": " + u + "}");
         } else if ("/blank.mp4".equals(path)) {
             // 返回极简视频字节，避免播放器提示错误
             byte[] blank = new byte[]{
@@ -257,6 +265,8 @@ public class PanWebServer {
     private String renderHtml() {
         boolean q = PanTokenManager.get().hasQuarkCookie();
         boolean a = PanTokenManager.get().hasAliRefreshToken();
+        boolean b = PanTokenManager.get().hasBaiduCookie();
+        boolean u = PanTokenManager.get().hasUcCookie();
         return "<!DOCTYPE html>\n"
                 + "<html lang=\"zh-CN\">\n"
                 + "<head>\n"
@@ -283,6 +293,12 @@ public class PanWebServer {
                 + "<body>\n"
                 + "  <h2>📺 TVBox 网盘极速配置</h2>\n"
                 + "  <div class=\"card\">\n"
+                + "    <h3>🐮 百度网盘配置 (原画与无限) <span class=\"badge " + (b ? "success" : "danger") + "\">" + (b ? "已配置" : "尚未配置") + "</span></h3>\n"
+                + "    <p class=\"tip\">输入百度网盘 Cookie 或 BDUSS（配置后可直连原画及突破限速）</p>\n"
+                + "    <textarea id=\"baidu_cookie\" rows=\"3\" placeholder=\"在此粘贴完整的 Baidu Cookie 或 BDUSS=...\">" + (b ? "******(已配置)******" : "") + "</textarea>\n"
+                + "    <button onclick=\"saveBaidu()\">💾 保存百度 Cookie / BDUSS</button>\n"
+                + "  </div>\n"
+                + "  <div class=\"card\">\n"
                 + "    <h3>🐮 夸克网盘配置 <span class=\"badge " + (q ? "success" : "danger") + "\">" + (q ? "已授权绑定" : "尚未配置") + "</span></h3>\n"
                 + "    <p class=\"tip\">方式 1：输入夸克 Cookie（支持手机/电脑抓包提取的 Cookie）</p>\n"
                 + "    <textarea id=\"quark_cookie\" rows=\"3\" placeholder=\"在此粘贴完整的 Quark Cookie (格式如: _UP_A4A_11_=...; cookie2=...)\">" + (q ? "******(已配置)******" : "") + "</textarea>\n"
@@ -290,6 +306,12 @@ public class PanWebServer {
                 + "    <hr style=\"border:0;border-top:1px solid #334155;margin:18px 0\">\n"
                 + "    <p class=\"tip\">方式 2：使用夸克 App 扫描下方二维码一键授权绑定：</p>\n"
                 + "    <div class=\"qr-box\"><img class=\"qr-img\" src=\"/qrcode?type=quark&r=" + System.currentTimeMillis() + "\" alt=\"夸克扫码\"></div>\n"
+                + "  </div>\n"
+                + "  <div class=\"card\">\n"
+                + "    <h3>🐮 UC 网盘配置 <span class=\"badge " + (u ? "success" : "danger") + "\">" + (u ? "已配置" : "尚未配置") + "</span></h3>\n"
+                + "    <p class=\"tip\">输入 UC 网盘 Cookie</p>\n"
+                + "    <textarea id=\"uc_cookie\" rows=\"3\" placeholder=\"在此粘贴完整的 UC Cookie\">" + (u ? "******(已配置)******" : "") + "</textarea>\n"
+                + "    <button onclick=\"saveUc()\">💾 保存 UC Cookie</button>\n"
                 + "  </div>\n"
                 + "  <div class=\"card\">\n"
                 + "    <h3>🐮 阿里云盘配置 <span class=\"badge " + (a ? "success" : "danger") + "\">" + (a ? "已授权绑定" : "尚未配置") + "</span></h3>\n"
@@ -302,10 +324,20 @@ public class PanWebServer {
                 + "  </div>\n"
                 + "  <button class=\"btn-clear\" onclick=\"clearAll()\">🗑️ 清除电视端所有网盘凭证</button>\n"
                 + "  <script>\n"
+                + "    function saveBaidu() {\n"
+                + "      const val = document.getElementById('baidu_cookie').value;\n"
+                + "      if (!val || val.includes('已配置')) return alert('请输入新的 Cookie');\n"
+                + "      fetch('/save?type=baidu&value=' + encodeURIComponent(val)).then(r => r.json()).then(res => { alert(res.message); location.reload(); });\n"
+                + "    }\n"
                 + "    function saveQuark() {\n"
                 + "      const val = document.getElementById('quark_cookie').value;\n"
                 + "      if (!val || val.includes('已配置')) return alert('请输入新的 Cookie');\n"
                 + "      fetch('/save?type=quark&value=' + encodeURIComponent(val)).then(r => r.json()).then(res => { alert(res.message); location.reload(); });\n"
+                + "    }\n"
+                + "    function saveUc() {\n"
+                + "      const val = document.getElementById('uc_cookie').value;\n"
+                + "      if (!val || val.includes('已配置')) return alert('请输入新的 Cookie');\n"
+                + "      fetch('/save?type=uc&value=' + encodeURIComponent(val)).then(r => r.json()).then(res => { alert(res.message); location.reload(); });\n"
                 + "    }\n"
                 + "    function saveAli() {\n"
                 + "      const val = document.getElementById('ali_token').value;\n"

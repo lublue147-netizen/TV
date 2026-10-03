@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -139,6 +140,30 @@ public class GoProxy {
         } catch (Exception e) {
             return rawUrl;
         }
+    }
+
+    public static String wrap(String rawUrl) {
+        return wrap(rawUrl, (Map<String, String>) null);
+    }
+
+    public static String wrapWithHost(String rawUrl, String hostOrReferer) {
+        Map<String, String> headers = new HashMap<>();
+        if (hostOrReferer != null && !hostOrReferer.isEmpty()) {
+            if (hostOrReferer.contains("baidu")) {
+                headers.put("User-Agent", "pan.baidu.com");
+                headers.put("Referer", "https://pan.baidu.com/");
+            } else if (hostOrReferer.contains("uc")) {
+                headers.put("User-Agent", OkHttp.CHROME);
+                headers.put("Referer", "https://drive.uc.cn/");
+            } else if (hostOrReferer.contains("quark")) {
+                headers.put("User-Agent", OkHttp.CHROME);
+                headers.put("Referer", "https://pan.quark.cn/");
+            } else {
+                headers.put("User-Agent", OkHttp.CHROME);
+                headers.put("Referer", hostOrReferer);
+            }
+        }
+        return wrap(rawUrl, headers);
     }
 
     /**

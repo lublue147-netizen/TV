@@ -2,7 +2,10 @@ package com.github.catvod.spider;
 
 import android.content.Context;
 import com.github.catvod.api.AliYunApi;
+import com.github.catvod.api.BaiduApi;
+import com.github.catvod.api.PanTokenManager;
 import com.github.catvod.api.QuarkApi;
+import com.github.catvod.api.UcApi;
 import com.github.catvod.crawler.Spider;
 import com.github.catvod.proxy.GoProxy;
 import com.github.catvod.utils.OkHttp;
@@ -51,8 +54,10 @@ public class MyPan extends Spider {
 
         String[][] tags = {
             {"alist", "📁 AList 本地/远程挂载"},
-            {"aliyun", "🐮 阿里云盘 (个人媒体库)"},
-            {"quark", "🐮 夸克网盘 (个人媒体库)"}
+            {"baidu", "🐮 百度网盘 (原画与无限)"},
+            {"quark", "🐮 夸克网盘 (个人媒体库)"},
+            {"uc", "🐮 UC 网盘 (个人媒体库)"},
+            {"aliyun", "🐮 阿里云盘 (个人媒体库)"}
         };
 
         for (String[] tag : tags) {
@@ -73,14 +78,14 @@ public class MyPan extends Spider {
         alistItem.put("vod_remarks", serverUrl);
         list.put(alistItem);
 
-        // 2. 阿里云盘项
-        boolean aliAuthed = AliYunApi.get().hasToken();
-        JSONObject aliItem = new JSONObject();
-        aliItem.put("vod_id", "ali::root");
-        aliItem.put("vod_name", "🐮 我的阿里云盘");
-        aliItem.put("vod_pic", "https://img.icons8.com/color/480/alipay.png");
-        aliItem.put("vod_remarks", aliAuthed ? "已绑定授权" : "未授权·请先扫码");
-        list.put(aliItem);
+        // 2. 百度网盘项
+        boolean baiduAuthed = PanTokenManager.get().hasBaiduCookie();
+        JSONObject bItem = new JSONObject();
+        bItem.put("vod_id", "baidu::0");
+        bItem.put("vod_name", "🐮 我的百度网盘 (原画与无限)");
+        bItem.put("vod_pic", "https://img.icons8.com/color/480/baidu.png");
+        bItem.put("vod_remarks", baiduAuthed ? "已绑定授权" : "未授权·请先配置");
+        list.put(bItem);
 
         // 3. 夸克网盘项
         boolean quarkAuthed = QuarkApi.get().hasCookie();
@@ -90,6 +95,24 @@ public class MyPan extends Spider {
         qItem.put("vod_pic", "https://img.icons8.com/color/480/cloud-storage.png");
         qItem.put("vod_remarks", quarkAuthed ? "已绑定授权" : "未授权·请先扫码");
         list.put(qItem);
+
+        // 4. UC 网盘项
+        boolean ucAuthed = PanTokenManager.get().hasUcCookie();
+        JSONObject uItem = new JSONObject();
+        uItem.put("vod_id", "uc::0");
+        uItem.put("vod_name", "🐮 我的UC网盘");
+        uItem.put("vod_pic", "https://img.icons8.com/color/480/uc-browser.png");
+        uItem.put("vod_remarks", ucAuthed ? "已绑定授权" : "未授权·请先配置");
+        list.put(uItem);
+
+        // 5. 阿里云盘项
+        boolean aliAuthed = AliYunApi.get().hasToken();
+        JSONObject aliItem = new JSONObject();
+        aliItem.put("vod_id", "ali::root");
+        aliItem.put("vod_name", "🐮 我的阿里云盘");
+        aliItem.put("vod_pic", "https://img.icons8.com/color/480/alipay.png");
+        aliItem.put("vod_remarks", aliAuthed ? "已绑定授权" : "未授权·请先扫码");
+        list.put(aliItem);
 
         result.put("list", list);
         return result.toString();
@@ -143,6 +166,20 @@ public class MyPan extends Spider {
             }
         }
 
+        if (id.startsWith("baidu::")) {
+            vod.put("vod_name", "我的百度网盘");
+            vod.put("vod_pic", "https://img.icons8.com/color/480/baidu.png");
+            vod.put("vod_content", "已连接百度网盘个人媒体库");
+            vod.put("vod_play_from", "百度原画$$$百度无限");
+            vod.put("vod_play_url", "4K原画正片$baidu_orig::" + id + "::0::#4K无限极速$baidu_unlimit::" + id + "::0::");
+        } else if (id.startsWith("uc::")) {
+            vod.put("vod_name", "我的UC网盘");
+            vod.put("vod_pic", "https://img.icons8.com/color/480/uc-browser.png");
+            vod.put("vod_content", "已连接UC网盘个人媒体库");
+            vod.put("vod_play_from", "UC原画");
+            vod.put("vod_play_url", "4K原画正片$uc::" + id);
+        }
+
         if (vod.optString("vod_play_from").isEmpty()) {
             vod.put("vod_name", "个人网盘媒体库");
             vod.put("vod_pic", "https://img.icons8.com/color/480/folder-invoices.png");
@@ -158,10 +195,15 @@ public class MyPan extends Spider {
 
     @Override
     public String playerContent(String flag, String id, List<String> vipFlags) throws Exception {
+        if (id.startsWith("baidu_") || (flag != null && flag.contains("百度"))) {
+            return BaiduApi.get().getPlayerContent(flag, id).toString();
+        } else if (id.startsWith("uc::") || (flag != null && flag.contains("UC"))) {
+            return UcApi.get().getPlayerContent(id).toString();
+        }
         JSONObject result = new JSONObject();
         result.put("parse", 0);
         result.put("playUrl", "");
-        result.put("url", GoProxy.wrap(id, null));
+        result.put("url", GoProxy.wrap(id));
         return result.toString();
     }
 
