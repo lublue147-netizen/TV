@@ -35,13 +35,21 @@ public class BaiduApi {
         public long size;
         public String shareUrl;
         public String pwd;
+        public String shareUk;
+        public String shareId;
 
-        public FileItem(String name, String fsId, long size, String shareUrl, String pwd) {
+        public FileItem(String name, String fsId, long size, String shareUrl, String pwd, String shareUk, String shareId) {
             this.name = name;
             this.fsId = fsId;
             this.size = size;
             this.shareUrl = shareUrl;
             this.pwd = pwd;
+            this.shareUk = shareUk != null ? shareUk : "";
+            this.shareId = shareId != null ? shareId : "";
+        }
+
+        public FileItem(String name, String fsId, long size, String shareUrl, String pwd) {
+            this(name, fsId, size, shareUrl, pwd, "", "");
         }
     }
 
@@ -230,7 +238,16 @@ public class BaiduApi {
         }
 
         String cookieStr = getCookie();
-        String bdclnd = "";
+        Map<String, String> cookieJar = new LinkedHashMap<>();
+        if (!cookieStr.isEmpty()) {
+            for (String part : cookieStr.split(";")) {
+                String pair = part.trim();
+                int eq = pair.indexOf('=');
+                if (eq > 0) {
+                    cookieJar.put(pair.substring(0, eq).trim(), pair.substring(eq + 1).trim());
+                }
+            }
+        }
 
         // 1. 如果有提取码，先执行 verify 获取 BDCLND Cookie
         if (pwd != null && !pwd.trim().isEmpty()) {
@@ -246,17 +263,17 @@ public class BaiduApi {
                 if (resp != null && resp.code == 200 && !resp.body.isEmpty()) {
                     JSONObject vObj = new JSONObject(resp.body);
                     if (vObj.optInt("errno", -1) == 0 && vObj.has("randsk")) {
-                        bdclnd = vObj.getString("randsk");
+                        cookieJar.put("BDCLND", vObj.getString("randsk"));
                     }
                 }
                 if (resp != null) {
                     List<String> setCookies = resp.getHeaders("Set-Cookie");
                     if (setCookies != null) {
                         for (String sc : setCookies) {
-                            if (sc.contains("BDCLND=")) {
-                                int start = sc.indexOf("BDCLND=") + 7;
-                                int end = sc.indexOf(";", start);
-                                bdclnd = end != -1 ? sc.substring(start, end) : sc.substring(start);
+                            String pair = sc.split(";")[0].trim();
+                            int eq = pair.indexOf('=');
+                            if (eq > 0) {
+                                cookieJar.put(pair.substring(0, eq).trim(), pair.substring(eq + 1).trim());
                             }
                         }
                     }
@@ -268,65 +285,109 @@ public class BaiduApi {
 
         // 构建请求 Cookie
         StringBuilder finalCookie = new StringBuilder();
-        if (!cookieStr.isEmpty()) finalCookie.append(cookieStr);
-        if (!bdclnd.isEmpty()) {
+        for (Map.Entry<String, String> entry : cookieJar.entrySet()) {
             if (finalCookie.length() > 0) finalCookie.append("; ");
-            finalCookie.append("BDCLND=").append(bdclnd);
+            finalCookie.append(entry.getKey()).append("=").append(entry.getValue());
         }
 
-        // 2. 获取分享页面解析 shareid 与 uk
+        // 2. 获取分享页面解析 shareid 与 uk，并提取根目录 file_list
         String shareUk = "";
         String shareId = "";
+        String pageHtml = "";
+        Queue<String> dirQueue = new LinkedList<>();
+
         try {
             Map<String, String> pHeaders = new HashMap<>();
             pHeaders.put("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
             if (finalCookie.length() > 0) pHeaders.put("Cookie", finalCookie.toString());
-            String pageHtml = OkHttp.get("https://pan.baidu.com/s/1" + surl, pHeaders);
+            pageHtml = OkHttp.get("https://pan.baidu.com/s/1" + surl, pHeaders);
 
-            Matcher mUk = Pattern.compile("share_uk:\"?(\\d+)\"?").matcher(pageHtml);
+            Matcher mUk = Pattern.compile("\"?share_uk\"?\\s*:\\s*\"?(\\d+)\"?").matcher(pageHtml);
             if (mUk.find()) shareUk = mUk.group(1);
-            Matcher mId = Pattern.compile("shareid:\"?(\\d+)\"?").matcher(pageHtml);
+            Matcher mId = Pattern.compile("\"?shareid\"?\\s*:\\s*\"?(\\d+)\"?").matcher(pageHtml);
             if (mId.find()) shareId = mId.group(1);
-        } catch (Exception ignored) {}
 
-        // 3. 调用 list 接口获取文件列表
-        try {
-            String listUrl;
-            if (!shareUk.isEmpty() && !shareId.isEmpty()) {
-                listUrl = "https://pan.baidu.com/share/list?shareid=" + shareId + "&uk=" + shareUk
-                        + "&dir=%2F&page=1&num=100&channel=chunlei&clienttype=0&web=1&app_id=" + APP_ID;
-            } else {
-                listUrl = "https://pan.baidu.com/share/list?shorturl=" + surl
-                        + "&dir=%2F&page=1&num=100&channel=chunlei&clienttype=0&web=1&app_id=" + APP_ID;
-            }
-
-            Map<String, String> lHeaders = new HashMap<>();
-            lHeaders.put("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
-            lHeaders.put("Referer", "https://pan.baidu.com/s/1" + surl);
-            if (finalCookie.length() > 0) lHeaders.put("Cookie", finalCookie.toString());
-
-            String listJson = OkHttp.get(listUrl, lHeaders);
-            if (!listJson.isEmpty()) {
-                JSONObject obj = new JSONObject(listJson);
-                if (obj.optInt("errno", -1) == 0 && obj.has("list")) {
-                    JSONArray arr = obj.getJSONArray("list");
+            // 提取网页内联的初始根文件列表
+            Matcher mFileList = Pattern.compile("\"file_list\"\\s*:\\s*(\\[\\{.*?\\}\\])").matcher(pageHtml);
+            if (mFileList.find()) {
+                try {
+                    JSONArray arr = new JSONArray(mFileList.group(1));
                     for (int i = 0; i < arr.length(); i++) {
                         JSONObject f = arr.getJSONObject(i);
                         String name = f.optString("server_filename", "");
                         String fsId = String.valueOf(f.opt("fs_id"));
                         long size = f.optLong("size", 0);
                         int isDir = f.optInt("isdir", 0);
+                        String path = f.optString("path", "");
 
-                        if (isDir == 0) {
-                            if (PATTERN_VIDEO_EXT.matcher(name).find() || size > 50 * 1024 * 1024L) {
-                                results.add(new FileItem(name, fsId, size, shareUrl, pwd));
+                        if (isDir == 1) {
+                            if (!path.isEmpty()) dirQueue.add(path);
+                        } else {
+                            if (isVideo(name, size)) {
+                                results.add(new FileItem(name, fsId, size, shareUrl, pwd, shareUk, shareId));
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+
+        if (results.isEmpty() && dirQueue.isEmpty()) {
+            dirQueue.add("/");
+        }
+
+        // 3. 递归遍历子目录获取所有视频文件
+        int depth = 0;
+        Set<String> visitedDirs = new HashSet<>();
+        while (!dirQueue.isEmpty() && depth < 25) {
+            String curDir = dirQueue.poll();
+            if (visitedDirs.contains(curDir)) continue;
+            visitedDirs.add(curDir);
+            depth++;
+
+            try {
+                String listUrl;
+                if (!shareUk.isEmpty() && !shareId.isEmpty()) {
+                    listUrl = "https://pan.baidu.com/share/list?shareid=" + shareId + "&uk=" + shareUk
+                            + "&dir=" + URLEncoder.encode(curDir, "UTF-8") + "&page=1&num=100&channel=chunlei&clienttype=0&web=1&app_id=" + APP_ID;
+                } else {
+                    listUrl = "https://pan.baidu.com/share/list?shorturl=" + surl
+                            + "&dir=" + URLEncoder.encode(curDir, "UTF-8") + "&page=1&num=100&channel=chunlei&clienttype=0&web=1&app_id=" + APP_ID;
+                }
+
+                Map<String, String> lHeaders = new HashMap<>();
+                lHeaders.put("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
+                lHeaders.put("Referer", "https://pan.baidu.com/s/1" + surl);
+                if (finalCookie.length() > 0) lHeaders.put("Cookie", finalCookie.toString());
+
+                String listJson = OkHttp.get(listUrl, lHeaders);
+                if (!listJson.isEmpty()) {
+                    JSONObject obj = new JSONObject(listJson);
+                    if (obj.optInt("errno", -1) == 0 && obj.has("list")) {
+                        JSONArray arr = obj.getJSONArray("list");
+                        for (int i = 0; i < arr.length(); i++) {
+                            JSONObject f = arr.getJSONObject(i);
+                            String name = f.optString("server_filename", "");
+                            String fsId = String.valueOf(f.opt("fs_id"));
+                            long size = f.optLong("size", 0);
+                            int isDir = f.optInt("isdir", 0);
+                            String path = f.optString("path", "");
+
+                            if (isDir == 1) {
+                                if (!path.isEmpty() && !visitedDirs.contains(path)) {
+                                    dirQueue.add(path);
+                                }
+                            } else {
+                                if (isVideo(name, size)) {
+                                    results.add(new FileItem(name, fsId, size, shareUrl, pwd, shareUk, shareId));
+                                }
                             }
                         }
                     }
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
         // 4. 排序：按剧集名称自然升序排列
@@ -341,10 +402,15 @@ public class BaiduApi {
 
         // 5. 容灾保底：若直接遍历未获取到单集，生成默认正片单项，保证线路绝不为空
         if (results.isEmpty()) {
-            results.add(new FileItem("4K原画正片", "0", 0, shareUrl, pwd != null ? pwd : ""));
+            results.add(new FileItem("4K原画正片", "0", 0, shareUrl, pwd != null ? pwd : "", shareUk, shareId));
         }
 
         return results;
+    }
+
+    private static boolean isVideo(String name, long size) {
+        if (name == null) return false;
+        return PATTERN_VIDEO_EXT.matcher(name).find() || size > 30 * 1024 * 1024L;
     }
 
     /**
@@ -357,12 +423,14 @@ public class BaiduApi {
         result.put("parse", 0);
         result.put("playUrl", "");
 
-        // 格式: baidu_orig::shareUrl::fsId::pwd 或 baidu_unlimit::shareUrl::fsId::pwd
+        // 格式: baidu_orig::shareUrl::fsId::pwd::shareUk::shareId
         String[] parts = playParam.split("::");
         String mode = parts[0];
         String shareUrl = parts.length > 1 ? parts[1] : "";
         String fsId = parts.length > 2 ? parts[2] : "0";
         String pwd = parts.length > 3 ? parts[3] : "";
+        String shareUk = parts.length > 4 ? parts[4] : "";
+        String shareId = parts.length > 5 ? parts[5] : "";
 
         boolean isUnlimited = mode.contains("unlimit") || (flag != null && flag.contains("无限"));
 
@@ -379,22 +447,82 @@ public class BaiduApi {
             }
         }
 
+        // 如果 fsId 为 "0" 且 shareUrl 有效，尝试遍历获取第一个视频文件的 fsId, shareUk, shareId
+        if (("0".equals(fsId) || fsId.isEmpty() || shareUk.isEmpty() || shareId.isEmpty()) && shareUrl.startsWith("http")) {
+            List<FileItem> bFiles = listShareFiles(shareUrl, pwd);
+            for (FileItem fi : bFiles) {
+                if (!"0".equals(fi.fsId)) {
+                    fsId = fi.fsId;
+                    if (shareUk.isEmpty()) shareUk = fi.shareUk;
+                    if (shareId.isEmpty()) shareId = fi.shareId;
+                    break;
+                }
+            }
+        }
+
         // 构建百度直链/流媒体地址
         String directUrl = "";
         String userCookie = getCookie();
 
-        // 如果 fsId 为 "0" 且 shareUrl 有效，尝试遍历获取第一个视频文件的 fsId
-        if (("0".equals(fsId) || fsId.isEmpty()) && shareUrl.startsWith("http")) {
-            List<FileItem> bFiles = listShareFiles(shareUrl, pwd);
-            if (!bFiles.isEmpty()) {
-                fsId = bFiles.get(0).fsId;
-            }
-        }
-
         // 如果用户配置了个人百度 Cookie (如 BDUSS)，通过 PCS 直链 API 换取极速直连
         if (!userCookie.isEmpty() && !"0".equals(fsId) && !fsId.isEmpty()) {
+            String personalFsId = "";
+
+            // 步骤 1: 调用 share/transfer 转存文件到个人云盘 /TV 目录
+            if (!shareUk.isEmpty() && !shareId.isEmpty()) {
+                try {
+                    String transferUrl = "https://pan.baidu.com/share/transfer?shareid=" + shareId + "&from=" + shareUk + "&ondup=newcopy&async=1&channel=chunlei&web=1&app_id=" + APP_ID + "&clienttype=0";
+                    Map<String, String> tHeaders = new HashMap<>();
+                    tHeaders.put("User-Agent", "pan.baidu.com");
+                    tHeaders.put("Referer", "https://pan.baidu.com/");
+                    tHeaders.put("Cookie", userCookie);
+                    tHeaders.put("Content-Type", "application/x-www-form-urlencoded");
+                    String tBody = "fsidlist=[" + fsId + "]&path=/TV";
+
+                    OkHttp.Response tResp = OkHttp.request("POST", transferUrl, tBody, tHeaders);
+                    if (tResp != null && !tResp.body.isEmpty()) {
+                        JSONObject tObj = new JSONObject(tResp.body);
+                        if (tObj.optInt("errno", -1) == 0) {
+                            JSONObject extra = tObj.optJSONObject("extra");
+                            if (extra != null && extra.has("list")) {
+                                JSONArray eList = extra.optJSONArray("list");
+                                if (eList != null && eList.length() > 0) {
+                                    String toFsId = String.valueOf(eList.getJSONObject(0).opt("to_fs_id"));
+                                    if (!toFsId.isEmpty() && !"null".equals(toFsId) && !"0".equals(toFsId)) {
+                                        personalFsId = toFsId;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            // 步骤 2: 若未直接返回 to_fs_id，列出 /TV 目录获取个人端 fs_id
+            if (personalFsId.isEmpty()) {
+                try {
+                    String tvListUrl = "https://pan.baidu.com/rest/2.0/xpan/file?method=list&dir=%2FTV&web=1";
+                    Map<String, String> mHeaders = new HashMap<>();
+                    mHeaders.put("User-Agent", "pan.baidu.com");
+                    mHeaders.put("Cookie", userCookie);
+                    String tvListRes = OkHttp.get(tvListUrl, mHeaders);
+                    if (!tvListRes.isEmpty()) {
+                        JSONObject tvObj = new JSONObject(tvListRes);
+                        if (tvObj.optInt("errno", -1) == 0 && tvObj.has("list")) {
+                            JSONArray tvList = tvObj.getJSONArray("list");
+                            if (tvList.length() > 0) {
+                                personalFsId = String.valueOf(tvList.getJSONObject(0).opt("fs_id"));
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            String targetFsId = !personalFsId.isEmpty() ? personalFsId : fsId;
+
+            // 步骤 3: 使用 filemetas 获取 4K 原画直连 dlink
             try {
-                String dlinkUrl = "https://pan.baidu.com/rest/2.0/xpan/multimedia?method=filemetas&dlink=1&fsids=%5B" + fsId + "%5D";
+                String dlinkUrl = "https://pan.baidu.com/rest/2.0/xpan/multimedia?method=filemetas&dlink=1&fsids=%5B" + targetFsId + "%5D";
                 Map<String, String> dHeaders = new HashMap<>();
                 dHeaders.put("User-Agent", "pan.baidu.com");
                 dHeaders.put("Cookie", userCookie);

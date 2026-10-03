@@ -1,6 +1,7 @@
 package com.github.catvod.spider;
 
 import com.github.catvod.api.AliYunApi;
+import com.github.catvod.api.BaiduApi;
 import com.github.catvod.api.PanTokenManager;
 import com.github.catvod.api.QuarkApi;
 import com.github.catvod.qrcode.QrUtil;
@@ -146,6 +147,9 @@ public class PanWebServer {
             byte[] bmp = null;
             if ("quark".equalsIgnoreCase(type)) {
                 QuarkApi.QrResult qr = QuarkApi.get().getQrcode();
+                if (qr != null) bmp = QrUtil.createBmp(qr.qrUrl, 6, 2);
+            } else if ("baidu".equalsIgnoreCase(type)) {
+                BaiduApi.QrResult qr = BaiduApi.get().getQrcode();
                 if (qr != null) bmp = QrUtil.createBmp(qr.qrUrl, 6, 2);
             } else {
                 AliYunApi.QrResult qr = AliYunApi.get().getQrcode();

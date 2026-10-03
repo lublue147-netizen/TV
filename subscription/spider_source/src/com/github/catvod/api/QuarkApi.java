@@ -22,7 +22,7 @@ public class QuarkApi {
 
     private static final String PREF_NAME = "pan_config";
     private static final String KEY_COOKIE = "quark_cookie";
-    private static final String HOST_PAN = "https://pan.quark.cn/1/clouddrive/";
+    private static final String HOST_PAN = "https://drive.quark.cn/1/clouddrive/";
     private static final String HOST_DRIVE_PC = "https://drive-pc.quark.cn/1/clouddrive/";
     private static final String HOST_DRIVE = "https://drive.quark.cn/1/clouddrive/";
     private static final String PR = "pr=ucpro&fr=pc&uc_param_str=";
@@ -226,12 +226,14 @@ public class QuarkApi {
         public String fid;
         public String shareFidToken;
         public long size;
+        public String pdirFid;
 
-        public FileItem(String name, String fid, String shareFidToken, long size) {
+        public FileItem(String name, String fid, String shareFidToken, long size, String pdirFid) {
             this.name = name;
             this.fid = fid;
             this.shareFidToken = shareFidToken != null ? shareFidToken : "";
             this.size = size;
+            this.pdirFid = pdirFid != null && !pdirFid.isEmpty() ? pdirFid : "0";
         }
     }
 
@@ -274,6 +276,8 @@ public class QuarkApi {
                         boolean isDir = item.optBoolean("dir", false);
                         String fid = item.optString("fid");
                         String name = item.optString("file_name");
+                        String pdirFid = item.optString("pdir_fid", folderId);
+                        if (pdirFid.isEmpty()) pdirFid = folderId;
 
                         if (isDir) {
                             folderQueue.add(fid);
@@ -283,7 +287,7 @@ public class QuarkApi {
                             long size = item.optLong("size", 0);
 
                             if (isVideo(name, format)) {
-                                videos.add(new FileItem(name, fid, shareFidToken, size));
+                                videos.add(new FileItem(name, fid, shareFidToken, size, pdirFid));
                             }
                         }
                     }
@@ -309,13 +313,17 @@ public class QuarkApi {
      * 获取直链播放 URL
      */
     public String getPlayUrl(String shareId, String stoken, String fid, String shareFidToken) {
+        return getPlayUrl(shareId, stoken, fid, shareFidToken, "0");
+    }
+
+    public String getPlayUrl(String shareId, String stoken, String fid, String shareFidToken, String pdirFid) {
         if (!hasCookie()) {
             return "";
         }
 
         try {
             // 1. 保存到个人云盘临时 TV 目录
-            String userFid = saveToTemp(shareId, stoken, fid, shareFidToken);
+            String userFid = saveToTemp(shareId, stoken, fid, shareFidToken, pdirFid);
             if (userFid == null || userFid.isEmpty()) {
                 return "";
             }
@@ -358,9 +366,9 @@ public class QuarkApi {
         return "";
     }
 
-    private synchronized String saveToTemp(String shareId, String stoken, String fid, String shareFidToken) throws Exception {
+    private synchronized String saveToTemp(String shareId, String stoken, String fid, String shareFidToken, String pdirFid) throws Exception {
         ensureSaveDir();
-        if (saveDirId == null) return null;
+        String targetDir = (saveDirId != null && !saveDirId.isEmpty()) ? saveDirId : "0";
 
         String saveUrl = HOST_DRIVE_PC + "share/sharepage/save?" + PR;
         JSONObject saveBody = new JSONObject();
@@ -371,10 +379,10 @@ public class QuarkApi {
 
         saveBody.put("fid_list", fidList);
         saveBody.put("fid_token_list", tokenList);
-        saveBody.put("to_pdir_fid", saveDirId);
+        saveBody.put("to_pdir_fid", targetDir);
         saveBody.put("pwd_id", shareId);
         saveBody.put("stoken", stoken);
-        saveBody.put("pdir_fid", "0");
+        saveBody.put("pdir_fid", (pdirFid != null && !pdirFid.isEmpty()) ? pdirFid : "0");
         saveBody.put("scene", "link");
 
         String saveRes = OkHttp.postJson(saveUrl, saveBody.toString(), getHeaders());

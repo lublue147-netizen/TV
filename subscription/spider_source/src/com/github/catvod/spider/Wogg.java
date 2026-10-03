@@ -560,7 +560,7 @@ public class Wogg extends Spider {
             for (QuarkApi.FileItem item : qFiles) {
                 if (qEp.length() > 0) qEp.append("#");
                 String epName = cleanEpisodeName(item.name, idx);
-                String playParam = "quark::" + qId + "::" + stoken + "::" + item.fid + "::" + item.shareFidToken;
+                String playParam = "quark::" + qId + "::" + stoken + "::" + item.fid + "::" + item.shareFidToken + "::" + item.pdirFid;
                 qEp.append(epName).append("$").append(playParam);
                 idx++;
             }
@@ -585,8 +585,8 @@ public class Wogg extends Spider {
                     bUnlimitEp.append("#");
                 }
                 String epName = cleanEpisodeName(item.name, idx);
-                String pOrig = "baidu_orig::" + item.shareUrl + "::" + item.fsId + "::" + item.pwd;
-                String pUnlimit = "baidu_unlimit::" + item.shareUrl + "::" + item.fsId + "::" + item.pwd;
+                String pOrig = "baidu_orig::" + item.shareUrl + "::" + item.fsId + "::" + item.pwd + "::" + item.shareUk + "::" + item.shareId;
+                String pUnlimit = "baidu_unlimit::" + item.shareUrl + "::" + item.fsId + "::" + item.pwd + "::" + item.shareUk + "::" + item.shareId;
                 bOrigEp.append(epName).append("$").append(pOrig);
                 bUnlimitEp.append(epName).append("$").append(pUnlimit);
                 idx++;
@@ -731,6 +731,7 @@ public class Wogg extends Spider {
             String stoken = parts.length > 2 ? parts[2] : "";
             String fid = parts.length > 3 ? parts[3] : "0";
             String shareFidToken = parts.length > 4 ? parts[4] : "";
+            String pdirFid = parts.length > 5 ? parts[5] : "0";
 
             if (shareId.startsWith("search://")) {
                 String kw = shareId.substring(9).trim();
@@ -753,10 +754,11 @@ public class Wogg extends Spider {
                     if (!qFiles.isEmpty()) {
                         fid = qFiles.get(0).fid;
                         shareFidToken = qFiles.get(0).shareFidToken;
+                        pdirFid = qFiles.get(0).pdirFid;
                     }
                 }
                 if (!"0".equals(fid) && !fid.isEmpty()) {
-                    rawStreamUrl = QuarkApi.get().getPlayUrl(shareId, stoken, fid, shareFidToken);
+                    rawStreamUrl = QuarkApi.get().getPlayUrl(shareId, stoken, fid, shareFidToken, pdirFid);
                 }
             }
             headers.put("User-Agent", OkHttp.CHROME);

@@ -115,6 +115,7 @@ public class VodPlaybackController {
         if (episode == null) return;
         applyPlaybackState(result, request);
         renderPlaybackResult(result);
+        if (result.getUrl().isEmpty()) return;
         updatePlaybackPosition(result);
         host.loadDanmaku(result, state.getHistory(), episode);
         startPlayback(result, startPositionMs(), episode);
