@@ -419,7 +419,12 @@ public class QuarkApi {
             if (dataObj.has("finish")) {
                 JSONArray finishArr = dataObj.optJSONArray("finish");
                 if (finishArr != null && finishArr.length() > 0) {
-                    return finishArr.optJSONObject(0).optString("fid");
+                    Object first = finishArr.opt(0);
+                    if (first instanceof JSONObject) {
+                        return ((JSONObject) first).optString("fid");
+                    } else if (first != null) {
+                        return String.valueOf(first);
+                    }
                 }
             }
             if (dataObj.has("task_id")) {

@@ -220,7 +220,13 @@ public class Result implements Parcelable {
     }
 
     public void setHeader(Map<String, String> header) {
-        if (getHeader().isEmpty()) this.header = header;
+        if (getHeader().isEmpty()) {
+            this.header = header;
+        } else if (header != null && !header.isEmpty()) {
+            Map<String, String> merged = new HashMap<>(header);
+            merged.putAll(this.header);
+            this.header = merged;
+        }
     }
 
     public String getPlayUrl() {

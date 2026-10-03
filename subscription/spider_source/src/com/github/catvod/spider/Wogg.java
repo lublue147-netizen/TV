@@ -935,7 +935,7 @@ public class Wogg extends Spider {
         for (Map.Entry<String, String> entry : headers.entrySet()) {
             hObj.put(entry.getKey(), entry.getValue());
         }
-        result.put("header", hObj.toString());
+        result.put("header", hObj);
         return result.toString();
     }
 

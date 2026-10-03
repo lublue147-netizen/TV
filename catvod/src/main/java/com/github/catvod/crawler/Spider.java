@@ -51,7 +51,7 @@ public abstract class Spider {
     }
 
     public String searchContent(String key, boolean quick, String pg) throws Exception {
-        return "";
+        return searchContent(key, quick);
     }
 
     public String playerContent(String flag, String id, List<String> vipFlags) throws Exception {

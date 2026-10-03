@@ -62,9 +62,10 @@ public class AppV7 extends Spider {
     @Override
     public String playerContent(String flag, String id, List<String> vipFlags) throws Exception {
         JSONObject result = new JSONObject();
-        result.put("parse", 0);
+        boolean isDirect = id != null && (id.contains(".m3u8") || id.contains(".mp4") || id.contains(".flv") || id.contains(".ts"));
+        result.put("parse", isDirect ? 0 : 1);
         result.put("playUrl", "");
-        result.put("url", id);
+        result.put("url", id != null ? id : "");
         return result.toString();
     }
 }

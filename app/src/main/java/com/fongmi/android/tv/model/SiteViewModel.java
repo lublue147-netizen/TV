@@ -4,6 +4,7 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
+import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.Constant;
 import com.fongmi.android.tv.api.SiteApi;
 import com.fongmi.android.tv.api.config.VodConfig;
@@ -73,7 +74,11 @@ public class SiteViewModel extends ViewModel {
     }
 
     public void searchContent(List<Site> sites, String keyword, boolean quick) {
-        searches.start(sites, site -> SearchTask.create(site, keyword, quick), search::postValue);
+        searches.start(sites, site -> SearchTask.create(site, keyword, quick), result -> {
+            if (result != null && !result.getList().isEmpty()) {
+                App.post(() -> search.setValue(result));
+            }
+        });
     }
 
     private void execute(TaskType type, MutableLiveData<Result> liveData, Callable<Result> callable) {

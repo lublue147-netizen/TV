@@ -86,7 +86,12 @@ public class SafeSpider extends Spider {
     @Override
     public String searchContent(String key, boolean quick) {
         try {
-            return delegate.searchContent(key, quick);
+            String res = delegate.searchContent(key, quick);
+            if ((res == null || res.trim().isEmpty() || res.equals("{\"list\":[]}")) && delegate != null) {
+                String resPg = delegate.searchContent(key, quick, "1");
+                if (resPg != null && !resPg.trim().isEmpty() && !resPg.equals("{\"list\":[]}")) return resPg;
+            }
+            return res != null ? res : "";
         } catch (Throwable t) {
             t.printStackTrace();
             FirebaseUtil.recordSpiderError(siteKey, "searchContent", t);
@@ -97,7 +102,12 @@ public class SafeSpider extends Spider {
     @Override
     public String searchContent(String key, boolean quick, String pg) {
         try {
-            return delegate.searchContent(key, quick, pg);
+            String res = delegate.searchContent(key, quick, pg);
+            if ((res == null || res.trim().isEmpty() || res.equals("{\"list\":[]}")) && ("1".equals(pg) || pg == null) && delegate != null) {
+                String res2 = delegate.searchContent(key, quick);
+                if (res2 != null && !res2.trim().isEmpty() && !res2.equals("{\"list\":[]}")) return res2;
+            }
+            return res != null ? res : "";
         } catch (Throwable t) {
             t.printStackTrace();
             FirebaseUtil.recordSpiderError(siteKey, "searchContent_pg", t);

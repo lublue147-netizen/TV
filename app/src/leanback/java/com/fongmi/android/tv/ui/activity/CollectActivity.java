@@ -107,7 +107,7 @@ public class CollectActivity extends BaseActivity {
     private void setViewModel() {
         mViewModel = new ViewModelProvider(this).get(SiteViewModel.class);
         mViewModel.getSearch().observe(this, result -> {
-            if (result.getList().isEmpty()) return;
+            if (result == null || result.getList().isEmpty()) return;
             getFragment().addVideo(result.getList());
             mAdapter.add(Collect.create(result.getList()));
             mBinding.pager.getAdapter().notifyDataSetChanged();

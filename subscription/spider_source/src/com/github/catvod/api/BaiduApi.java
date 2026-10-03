@@ -511,6 +511,10 @@ public class BaiduApi {
                     String tBody = "fsidlist=[" + fsId + "]&path=/TV";
 
                     OkHttp.Response tResp = OkHttp.request("POST", transferUrl, tBody, tHeaders);
+                    if (tResp == null || tResp.body.isEmpty() || !tResp.body.contains("\"errno\":0")) {
+                        String fallbackBody = "fsidlist=[" + fsId + "]&path=/";
+                        tResp = OkHttp.request("POST", transferUrl, fallbackBody, tHeaders);
+                    }
                     if (tResp != null && !tResp.body.isEmpty()) {
                         JSONObject tObj = new JSONObject(tResp.body);
                         if (tObj.optInt("errno", -1) == 0) {
@@ -529,7 +533,7 @@ public class BaiduApi {
                 } catch (Exception ignored) {}
             }
 
-            // 步骤 2: 若未直接返回 to_fs_id，列出 /TV 目录获取个人端 fs_id
+            // 步骤 2: 若未直接返回 to_fs_id，列出 /TV 或 / 目录获取个人端 fs_id
             if (personalFsId.isEmpty()) {
                 try {
                     String tvListUrl = "https://pan.baidu.com/rest/2.0/xpan/file?method=list&dir=%2FTV&web=1&order=time&desc=1";
@@ -537,6 +541,10 @@ public class BaiduApi {
                     mHeaders.put("User-Agent", "pan.baidu.com");
                     mHeaders.put("Cookie", userCookie);
                     String tvListRes = OkHttp.get(tvListUrl, mHeaders);
+                    if (tvListRes.isEmpty() || !tvListRes.contains("\"errno\":0")) {
+                        tvListUrl = "https://pan.baidu.com/rest/2.0/xpan/file?method=list&dir=%2F&web=1&order=time&desc=1";
+                        tvListRes = OkHttp.get(tvListUrl, mHeaders);
+                    }
                     if (!tvListRes.isEmpty()) {
                         JSONObject tvObj = new JSONObject(tvListRes);
                         if (tvObj.optInt("errno", -1) == 0 && tvObj.has("list")) {
