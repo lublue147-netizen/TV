@@ -187,7 +187,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         });
         mViewModel.getAction().observe(this, result -> {
             if (result != null && result.hasMsg()) Notify.show(result.getMsg());
-            getVideo();
         });
     }
 

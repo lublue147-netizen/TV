@@ -70,9 +70,6 @@ public class Init {
     }
 
     public static Activity getActivity() {
-        if (mActivity != null && !mActivity.isFinishing()) {
-            return mActivity;
-        }
         try {
             Class<?> appClass = Class.forName("com.fongmi.android.tv.App");
             Method method = appClass.getMethod("activity");
@@ -82,6 +79,9 @@ public class Init {
                 return act;
             }
         } catch (Throwable ignored) {}
+        if (mActivity != null && !mActivity.isFinishing()) {
+            return mActivity;
+        }
         try {
             Class<?> activityThreadClass = Class.forName("android.app.ActivityThread");
             Object activityThread = activityThreadClass.getMethod("currentActivityThread").invoke(null);

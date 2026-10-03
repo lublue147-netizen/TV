@@ -38,17 +38,28 @@ public class QrDialog {
     }
 
     public static void dismiss() {
-        new Handler(Looper.getMainLooper()).post(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    if (sActiveDialog != null && sActiveDialog.isShowing()) {
-                        sActiveDialog.dismiss();
-                    }
-                } catch (Throwable ignored) {}
-                sActiveDialog = null;
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            dismissInternal(false);
+        } else {
+            new Handler(Looper.getMainLooper()).post(new Runnable() {
+                @Override
+                public void run() {
+                    dismissInternal(false);
+                }
+            });
+        }
+    }
+
+    private static void dismissInternal(boolean suppressListener) {
+        try {
+            if (sActiveDialog != null && sActiveDialog.isShowing()) {
+                if (suppressListener) {
+                    sActiveDialog.setOnDismissListener(null);
+                }
+                sActiveDialog.dismiss();
             }
-        });
+        } catch (Throwable ignored) {}
+        sActiveDialog = null;
     }
 
     public static void show(final String title, final String subtitle, final Bitmap qrBitmap, final String initialStatus, final Poller poller) {
@@ -56,7 +67,7 @@ public class QrDialog {
             @Override
             public void run() {
                 try {
-                    dismiss();
+                    dismissInternal(true);
                     Activity act = Init.getActivity();
                     if (act == null || act.isFinishing()) {
                         NotifyToast.show(title + "\n" + subtitle);
@@ -146,7 +157,8 @@ public class QrDialog {
                     root.addView(hintTv, hintLp);
 
                     dialog.setContentView(root);
-                    dialog.setCanceledOnTouchOutside(true);
+                    dialog.setCancelable(true);
+                    dialog.setCanceledOnTouchOutside(false);
 
                     final boolean[] isRunning = new boolean[]{true};
 
@@ -155,6 +167,11 @@ public class QrDialog {
                         public void onDismiss(DialogInterface d) {
                             isRunning[0] = false;
                             sActiveDialog = null;
+                            try {
+                                Class<?> refreshClz = Class.forName("com.fongmi.android.tv.event.RefreshEvent");
+                                refreshClz.getMethod("home").invoke(null);
+                                refreshClz.getMethod("category").invoke(null);
+                            } catch (Throwable ignored) {}
                         }
                     });
 

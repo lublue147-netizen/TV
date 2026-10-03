@@ -125,7 +125,6 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
         mViewModel.getResult().observe(getViewLifecycleOwner(), this::setAdapter);
         mViewModel.getAction().observe(getViewLifecycleOwner(), result -> {
             if (result != null && result.hasMsg()) Notify.show(result.getMsg());
-            onRefresh();
         });
     }
 

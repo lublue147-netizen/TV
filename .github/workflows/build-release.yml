@@ -111,7 +111,7 @@ jobs:
       - name: Determine Release Tag
         id: release_info
         run: |
-          VERSION="v5.7.9"
+          VERSION="v5.7.10"
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             TAG="${{ github.ref_name }}"
           elif [ -n "${{ inputs.tag_name }}" ]; then
