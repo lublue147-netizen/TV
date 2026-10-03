@@ -436,14 +436,26 @@ public class BaiduApi {
         boolean isUnlimited = mode.contains("unlimit") || (flag != null && flag.contains("无限"));
 
         if (shareUrl.startsWith("search://")) {
-            String kw = shareUrl.substring(9).trim();
+            String kw = PanSearchApi.cleanKeyword(shareUrl.substring(9).trim());
             List<PanSearchApi.Item> items = PanSearchApi.searchPan(kw, "baidu");
+            if (items.isEmpty()) {
+                items = PanSearchApi.search(kw);
+            }
             for (PanSearchApi.Item it : items) {
                 String[] bInfo = extractShareInfo(it.shareUrl);
+                if (bInfo == null) {
+                    bInfo = extractShareInfo(it.content);
+                }
                 if (bInfo != null) {
-                    shareUrl = bInfo[0];
-                    pwd = bInfo[2];
-                    break;
+                    List<FileItem> candFiles = listShareFiles(bInfo[0], bInfo[2]);
+                    if (!candFiles.isEmpty()) {
+                        shareUrl = bInfo[0];
+                        pwd = bInfo[2];
+                        fsId = candFiles.get(0).fsId;
+                        shareUk = candFiles.get(0).shareUk;
+                        shareId = candFiles.get(0).shareId;
+                        break;
+                    }
                 }
             }
         }
@@ -502,7 +514,7 @@ public class BaiduApi {
             // 步骤 2: 若未直接返回 to_fs_id，列出 /TV 目录获取个人端 fs_id
             if (personalFsId.isEmpty()) {
                 try {
-                    String tvListUrl = "https://pan.baidu.com/rest/2.0/xpan/file?method=list&dir=%2FTV&web=1";
+                    String tvListUrl = "https://pan.baidu.com/rest/2.0/xpan/file?method=list&dir=%2FTV&web=1&order=time&desc=1";
                     Map<String, String> mHeaders = new HashMap<>();
                     mHeaders.put("User-Agent", "pan.baidu.com");
                     mHeaders.put("Cookie", userCookie);

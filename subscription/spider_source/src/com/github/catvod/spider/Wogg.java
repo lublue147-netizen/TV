@@ -736,14 +736,27 @@ public class Wogg extends Spider {
             String pdirFid = parts.length > 5 ? parts[5] : "0";
 
             if (shareId.startsWith("search://")) {
-                String kw = shareId.substring(9).trim();
+                String kw = PanSearchApi.cleanKeyword(shareId.substring(9).trim());
                 List<PanSearchApi.Item> qSearch = PanSearchApi.searchPan(kw, "quark");
+                if (qSearch.isEmpty()) {
+                    qSearch = PanSearchApi.search(kw);
+                }
                 for (PanSearchApi.Item item : qSearch) {
                     Matcher mQ = REGEX_QUARK_LINK.matcher(item.content + " " + item.shareUrl);
-                    if (mQ.find()) {
-                        shareId = mQ.group(1);
-                        break;
+                    while (mQ.find()) {
+                        String candShareId = mQ.group(1);
+                        String candToken = QuarkApi.get().getShareToken(candShareId, "");
+                        List<QuarkApi.FileItem> candFiles = QuarkApi.get().listShareFiles(candShareId, candToken);
+                        if (!candFiles.isEmpty()) {
+                            shareId = candShareId;
+                            stoken = candToken;
+                            fid = candFiles.get(0).fid;
+                            shareFidToken = candFiles.get(0).shareFidToken;
+                            pdirFid = candFiles.get(0).pdirFid;
+                            break;
+                        }
                     }
+                    if (!shareId.startsWith("search://")) break;
                 }
             }
 
@@ -855,12 +868,8 @@ public class Wogg extends Spider {
         }
     }
 
-    private String cleanSearchKey(String title) {
-        if (title == null) return "";
-        String s = title.replaceAll("\\(.*?\\)|\\[.*?\\]|【.*?】", " ");
-        s = s.replaceAll("(?i)(4K|1080P|720P|HD|BD|国语|中字|双字|超清|高清|蓝光|60帧|杜比|HDR|SDR)", " ");
-        s = s.replaceAll("[^\\u4e00-\\u9fa5a-zA-Z0-9\\s]", " ");
-        return s.trim().replaceAll("\\s+", " ");
+    public static String cleanSearchKey(String title) {
+        return PanSearchApi.cleanKeyword(title);
     }
 
     private String cleanEpisodeName(String rawName, int fallbackIndex) {

@@ -64,7 +64,58 @@ public class PanSearchApi {
         return cachedBuildId.isEmpty() ? "7a7afa2d0d0da1a862a2f9a018db90c1ca09aeb0" : cachedBuildId;
     }
 
+    public static String cleanKeyword(String title) {
+        if (title == null) return "";
+        // 1. 去除各类括号内容: (), [], 【】, （）
+        String s = title.replaceAll("\\(.*?\\)|\\[.*?\\]|【.*?】|（.*?）", " ");
+        // 2. 去除画质/规格/版本标签
+        s = s.replaceAll("(?i)(4K|1080P|720P|HD|BD|国语|粤语|中字|双字|超清|高清|蓝光|60帧|杜比|HDR|SDR|加长版|未删减版|完整版|合集|电影|系列)", " ");
+
+        // 3. 如果标题包含连续中文，优先提取开头的纯中文主标题（彻底避免外文副标题、外文名及音标引起的网盘搜索失效）
+        Matcher mCn = Pattern.compile("^\\s*([\\u4e00-\\u9fa50-9：:·\\s]+)").matcher(s);
+        if (mCn.find()) {
+            String cn = mCn.group(1).replaceAll("[^\\u4e00-\\u9fa50-9]", " ").trim().replaceAll("\\s+", " ");
+            if (cn.length() >= 2) {
+                return cn;
+            }
+        }
+
+        // 4. 通用兜底：去除非汉字/英文字符
+        s = s.replaceAll("[^\\u4e00-\\u9fa5a-zA-Z0-9\\s]", " ");
+        return s.trim().replaceAll("\\s+", " ");
+    }
+
     public static List<Item> searchPan(String keyword, String pan) {
+        if (keyword == null || keyword.trim().isEmpty()) return new ArrayList<>();
+        String rawKey = keyword.trim();
+        List<Item> results = doSearchPan(rawKey, pan);
+        if (!results.isEmpty()) return results;
+
+        // 智能重试 1: 若关键词未清理，使用 cleanKeyword 清理重试
+        String cleanKw = cleanKeyword(rawKey);
+        if (!cleanKw.isEmpty() && !cleanKw.equalsIgnoreCase(rawKey)) {
+            results = doSearchPan(cleanKw, pan);
+            if (!results.isEmpty()) return results;
+        }
+
+        // 智能重试 2: 去除季度/部数后缀重试 (如 "庆余年 第二季" -> "庆余年")
+        String baseKw = !cleanKw.isEmpty() ? cleanKw : rawKey;
+        String strippedKw = baseKw.replaceAll("第[一二三四五六七八九十0-9]+[季部篇卷期]", "").trim();
+        if (!strippedKw.isEmpty() && !strippedKw.equals(baseKw)) {
+            results = doSearchPan(strippedKw, pan);
+            if (!results.isEmpty()) return results;
+        }
+
+        // 智能重试 3: 若指定了特定网盘类型 (如 baidu/quark) 且结果为空，回退到全局不限网盘搜索
+        if (pan != null && !pan.isEmpty() && !"all".equalsIgnoreCase(pan)) {
+            results = doSearchPan(!cleanKw.isEmpty() ? cleanKw : rawKey, "");
+            if (!results.isEmpty()) return results;
+        }
+
+        return results;
+    }
+
+    public static List<Item> doSearchPan(String keyword, String pan) {
         List<Item> results = new ArrayList<>();
         if (keyword == null || keyword.trim().isEmpty()) return results;
         String buildId = getBuildId();

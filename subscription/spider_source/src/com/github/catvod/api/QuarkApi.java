@@ -424,6 +424,35 @@ public class QuarkApi {
                 }
             }
         }
+
+        // 兜底容错：若转存未直接返回 fid（如 41009 目标文件已存在），直接列出 /TV 目录复用已有的文件 fid
+        try {
+            String listUrl = HOST_DRIVE_PC + "file/sort?" + PR + "&pdir_fid=" + targetDir + "&_page=1&_size=20&_sort=file_type:asc,updated_at:desc";
+            String lRes = OkHttp.get(listUrl, getHeaders());
+            if (lRes != null && !lRes.isEmpty()) {
+                JSONObject lJson = new JSONObject(lRes);
+                if (lJson.has("data") && lJson.getJSONObject("data").has("list")) {
+                    JSONArray list = lJson.getJSONObject("data").getJSONArray("list");
+                    if (list.length() > 0) {
+                        // 自动修剪：若临时转存目录文件超过 8 个，自动删除老旧视频，防止网盘空间占满
+                        if (list.length() > 8) {
+                            try {
+                                JSONArray delFids = new JSONArray();
+                                for (int di = 8; di < list.length(); di++) {
+                                    delFids.put(list.getJSONObject(di).optString("fid"));
+                                }
+                                String delUrl = HOST_DRIVE_PC + "file/delete?" + PR;
+                                JSONObject delBody = new JSONObject();
+                                delBody.put("fids", delFids);
+                                OkHttp.postJson(delUrl, delBody.toString(), getHeaders());
+                            } catch (Exception ignored) {}
+                        }
+                        return list.getJSONObject(0).optString("fid");
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
         return null;
     }
 
