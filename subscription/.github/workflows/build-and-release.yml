@@ -118,6 +118,7 @@ jobs:
             cd build_spider && jar cf spider_open.jar classes.dex && cd ..
             mkdir -p spider
             cp build_spider/spider_open.jar spider/spider_open.jar
+            cp build_spider/spider_open.jar spider/custom_spider.jar
             echo "=== Open-Source Spider JAR packaging successful ==="
           fi
 

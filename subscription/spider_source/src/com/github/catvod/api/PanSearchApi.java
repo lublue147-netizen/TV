@@ -21,7 +21,7 @@ public class PanSearchApi {
     private static volatile long lastBuildIdTime = 0;
 
     private static final Pattern PATTERN_BUILD_ID = Pattern.compile("\"buildId\":\"([^\"]+)\"");
-    private static final Pattern PATTERN_LINK = Pattern.compile("https?://(?:pan\\.quark\\.cn|www\\.alipan\\.com|www\\.aliyundrive\\.com|pan\\.baidu\\.com|drive\\.uc\\.cn)/s/[a-zA-Z0-9_-]+(?:\\?[^\\s\"'<#]+)?");
+    private static final Pattern PATTERN_LINK = Pattern.compile("https?://(?:pan\\.quark\\.cn/s/[a-zA-Z0-9]+|drive\\.uc\\.cn/s/[a-zA-Z0-9]+|(?:www\\.)?(?:alipan\\.com|aliyundrive\\.com)/s/[a-zA-Z0-9]+|pan\\.baidu\\.com/(?:s/(?:1)?[a-zA-Z0-9_-]+|share/init\\?surl=[a-zA-Z0-9_-]+))(?:\\?[^\\s\"'<#]+)?", Pattern.CASE_INSENSITIVE);
     private static final Pattern PATTERN_TITLE = Pattern.compile("(?:名称：|资源标题：)?([^\\n\\r<#]+)");
 
     public static class Item {
@@ -61,15 +61,20 @@ public class PanSearchApi {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return cachedBuildId.isEmpty() ? "latest" : cachedBuildId;
+        return cachedBuildId.isEmpty() ? "7a7afa2d0d0da1a862a2f9a018db90c1ca09aeb0" : cachedBuildId;
     }
 
     public static List<Item> searchPan(String keyword, String pan) {
         List<Item> results = new ArrayList<>();
+        if (keyword == null || keyword.trim().isEmpty()) return results;
         String buildId = getBuildId();
         try {
-            String encodedKey = URLEncoder.encode(keyword, "UTF-8");
-            String url = BASE_URL + "/_next/data/" + buildId + "/search.json?keyword=" + encodedKey + "&pan=" + pan;
+            String encodedKey = URLEncoder.encode(keyword.trim(), "UTF-8");
+            String panParam = "";
+            if (pan != null && !pan.isEmpty() && !"all".equalsIgnoreCase(pan) && !"uc".equalsIgnoreCase(pan)) {
+                panParam = "&pan=" + pan;
+            }
+            String url = BASE_URL + "/_next/data/" + buildId + "/search.json?keyword=" + encodedKey + panParam;
 
             Map<String, String> h = new HashMap<>();
             h.put("User-Agent", OkHttp.CHROME);
@@ -77,7 +82,14 @@ public class PanSearchApi {
             h.put("Referer", BASE_URL);
 
             String res = OkHttp.get(url, h);
-            if (!res.isEmpty()) {
+            if (res.isEmpty() || res.contains("404") || res.contains("Internal Server Error")) {
+                cachedBuildId = "";
+                buildId = getBuildId();
+                url = BASE_URL + "/_next/data/" + buildId + "/search.json?keyword=" + encodedKey + panParam;
+                res = OkHttp.get(url, h);
+            }
+
+            if (!res.isEmpty() && !res.contains("Internal Server Error")) {
                 JSONObject root = new JSONObject(res);
                 JSONObject dataObj = root.optJSONObject("pageProps");
                 if (dataObj != null) {
@@ -110,11 +122,11 @@ public class PanSearchApi {
                                     title = title.substring(0, 60);
                                 }
 
-                                String diskType = "网盘资源";
-                                if (pan.contains("quark")) diskType = "夸克网盘";
-                                else if (pan.contains("ali")) diskType = "阿里云盘";
-                                else if (pan.contains("baidu")) diskType = "百度网盘";
-                                else if (pan.contains("uc")) diskType = "UC网盘";
+                                String diskType = "4K网盘";
+                                if (shareUrl.contains("pan.quark.cn")) diskType = "夸克网盘";
+                                else if (shareUrl.contains("alipan.com") || shareUrl.contains("aliyundrive.com")) diskType = "阿里云盘";
+                                else if (shareUrl.contains("pan.baidu.com")) diskType = "百度网盘";
+                                else if (shareUrl.contains("drive.uc.cn")) diskType = "UC网盘";
 
                                 results.add(new Item(title, shareUrl, cleanContent, time, pic, diskType));
                             }
@@ -130,10 +142,40 @@ public class PanSearchApi {
 
     public static List<Item> search(String keyword) {
         List<Item> allResults = new ArrayList<>();
-        String[] pans = {"quark", "aliyundrive", "baidu", "uc"};
-        for (String pan : pans) {
-            allResults.addAll(searchPan(keyword, pan));
+        Set<String> seen = new HashSet<>();
+
+        // 1. 综合通用搜索 (覆盖 Quark, UC, Baidu, Ali 等)
+        List<Item> general = searchPan(keyword, "");
+        for (Item it : general) {
+            if (seen.add(it.shareUrl)) {
+                allResults.add(it);
+            }
         }
+
+        // 2. 百度专项搜索
+        List<Item> baidu = searchPan(keyword, "baidu");
+        for (Item it : baidu) {
+            if (seen.add(it.shareUrl)) {
+                allResults.add(it);
+            }
+        }
+
+        // 3. 夸克专项搜索
+        List<Item> quark = searchPan(keyword, "quark");
+        for (Item it : quark) {
+            if (seen.add(it.shareUrl)) {
+                allResults.add(it);
+            }
+        }
+
+        // 4. 阿里专项搜索
+        List<Item> ali = searchPan(keyword, "aliyundrive");
+        for (Item it : ali) {
+            if (seen.add(it.shareUrl)) {
+                allResults.add(it);
+            }
+        }
+
         return allResults;
     }
 }

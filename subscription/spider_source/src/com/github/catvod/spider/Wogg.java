@@ -62,7 +62,7 @@ public class Wogg extends Spider {
     );
 
     private static final Pattern REGEX_BAIDU_PWD = Pattern.compile(
-        "(?:提取码|pwd|密码)[:：\\s]*([a-zA-Z0-9]{4})",
+        "(?:提取码|pwd|密码)[:：=\\s]*([a-zA-Z0-9]{4})",
         Pattern.CASE_INSENSITIVE
     );
 
@@ -116,10 +116,12 @@ public class Wogg extends Spider {
 
         String[][] categories = {
             {"1", "4K电影"},
-            {"2", "全集连续剧"},
+            {"2", "全集剧集"},
             {"3", "精品动漫"},
             {"4", "热门综艺"},
-            {"5", "爽文短剧"}
+            {"5", "爽文短剧"},
+            {"6", "热播韩剧"},
+            {"7", "经典纪录片"}
         };
 
         for (String[] cat : categories) {
@@ -132,13 +134,23 @@ public class Wogg extends Spider {
 
         JSONArray list = new JSONArray();
 
-        // 1. 尝试从 Wogg 镜像获取
-        String html = OkHttp.get(siteUrl);
-        if (!html.isEmpty() && html.contains("module-item")) {
-            parseVodList(html, REGEX_ITEM, list, 30);
+        // 1. 若配置了自定义有效镜像站，优先尝试镜像站
+        if (siteUrl != null && !siteUrl.contains("tvfan.xxooo.cf")) {
+            try {
+                String html = OkHttp.get(siteUrl);
+                if (!html.isEmpty() && html.contains("module-item")) {
+                    parseVodList(html, REGEX_ITEM, list, 30);
+                }
+            } catch (Exception ignored) {}
         }
 
-        // 2. 若镜像不可用或被防爬拦截，使用 PanSearch 4K 热门资源作为首页兜底
+        // 2. 高清豆瓣热门影视库 (保证秒开加载、高清海报、绝不为空)
+        if (list.length() == 0) {
+            fetchDoubanSubjects("movie", "热门", 15, 0, list);
+            fetchDoubanSubjects("tv", "热门", 15, 0, list);
+        }
+
+        // 3. PanSearch 4K 热门保底
         if (list.length() == 0) {
             List<PanSearchApi.Item> hotItems = PanSearchApi.search("4K");
             for (PanSearchApi.Item item : hotItems) {
@@ -158,18 +170,55 @@ public class Wogg extends Spider {
 
     @Override
     public String categoryContent(String tid, String pg, boolean filter, HashMap<String, String> extend) throws Exception {
-        String page = (pg == null || pg.isEmpty()) ? "1" : pg;
+        int page = 1;
+        try { page = Integer.parseInt(pg); } catch (Exception ignored) {}
+        int limit = 24;
+        int start = (page - 1) * limit;
+
         JSONObject result = new JSONObject();
         JSONArray list = new JSONArray();
 
-        // 1. 尝试镜像分类
-        String url = siteUrl + "/index.php/vodshow/" + tid + "--------" + page + "---.html";
-        String html = OkHttp.get(url);
-        if (!html.isEmpty() && html.contains("module-item")) {
-            parseVodList(html, REGEX_ITEM, list, 72);
+        // 1. 尝试自定义镜像分类
+        if (siteUrl != null && !siteUrl.contains("tvfan.xxooo.cf")) {
+            try {
+                String url = siteUrl + "/index.php/vodshow/" + tid + "--------" + page + "---.html";
+                String html = OkHttp.get(url);
+                if (!html.isEmpty() && html.contains("module-item")) {
+                    parseVodList(html, REGEX_ITEM, list, 72);
+                }
+            } catch (Exception ignored) {}
         }
 
-        // 2. 回退到 PanSearch 分类关键词搜索
+        // 2. 映射豆瓣各大分类库 (绝不报找不到数据，分页稳定)
+        if (list.length() == 0) {
+            String type = "movie";
+            String tag = "热门";
+            if ("1".equals(tid)) {
+                type = "movie";
+                tag = "热门";
+            } else if ("2".equals(tid)) {
+                type = "tv";
+                tag = "热门";
+            } else if ("3".equals(tid)) {
+                type = "tv";
+                tag = "日本动画";
+            } else if ("4".equals(tid)) {
+                type = "tv";
+                tag = "综艺";
+            } else if ("5".equals(tid)) {
+                type = "tv";
+                tag = "国产剧";
+            } else if ("6".equals(tid)) {
+                type = "tv";
+                tag = "韩剧";
+            } else if ("7".equals(tid)) {
+                type = "tv";
+                tag = "纪录片";
+            }
+            fetchDoubanSubjects(type, tag, limit, start, list);
+        }
+
+        // 3. PanSearch 关键词保底
         if (list.length() == 0) {
             String keyword = "4K";
             if ("1".equals(tid)) keyword = "电影 4K";
@@ -177,6 +226,8 @@ public class Wogg extends Spider {
             else if ("3".equals(tid)) keyword = "动漫 4K";
             else if ("4".equals(tid)) keyword = "综艺 4K";
             else if ("5".equals(tid)) keyword = "短剧";
+            else if ("6".equals(tid)) keyword = "韩剧 4K";
+            else if ("7".equals(tid)) keyword = "纪录片 4K";
 
             List<PanSearchApi.Item> searchItems = PanSearchApi.search(keyword);
             for (PanSearchApi.Item item : searchItems) {
@@ -189,9 +240,9 @@ public class Wogg extends Spider {
             }
         }
 
-        result.put("page", Integer.parseInt(page));
+        result.put("page", page);
         result.put("pagecount", 999);
-        result.put("limit", 72);
+        result.put("limit", limit);
         result.put("total", 9999);
         result.put("list", list);
         return result.toString();
@@ -206,13 +257,40 @@ public class Wogg extends Spider {
     public String searchContent(String key, boolean quick, String pg) throws Exception {
         JSONObject result = new JSONObject();
         JSONArray list = new JSONArray();
-        Set<String> seenUrls = new HashSet<>();
+        Set<String> seenNames = new HashSet<>();
 
-        // 1. 优先使用高速 PanSearch 多网盘引擎 (响应 < 500ms, 资源丰富)
+        // 1. 豆瓣实时精准联想 (获取高清封面与条目)
+        try {
+            String url = "https://movie.douban.com/j/subject_suggest?q=" + URLEncoder.encode(key, "UTF-8");
+            Map<String, String> headers = new HashMap<>();
+            headers.put("User-Agent", OkHttp.CHROME);
+            headers.put("Referer", "https://movie.douban.com/");
+            String json = OkHttp.get(url, headers);
+            if (!json.isEmpty()) {
+                JSONArray arr = new JSONArray(json);
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject item = arr.getJSONObject(i);
+                    String id = item.optString("id");
+                    String title = item.optString("title");
+                    String img = item.optString("img");
+                    String year = item.optString("year");
+
+                    seenNames.add(title);
+                    JSONObject v = new JSONObject();
+                    v.put("vod_id", "db::" + id + "::" + title + "::" + img);
+                    v.put("vod_name", title);
+                    v.put("vod_pic", img.isEmpty() ? "https://img.icons8.com/color/480/film-reel.png" : (img + "@Referer=https://movie.douban.com/@User-Agent=" + OkHttp.CHROME));
+                    v.put("vod_remarks", year.isEmpty() ? "4K原画" : (year + "·4K原画"));
+                    list.put(v);
+                }
+            }
+        } catch (Exception ignored) {}
+
+        // 2. PanSearch 多网盘综合搜索 (补充直接网盘条目)
         List<PanSearchApi.Item> searchItems = PanSearchApi.search(key);
         for (PanSearchApi.Item item : searchItems) {
-            if (seenUrls.contains(item.shareUrl)) continue;
-            seenUrls.add(item.shareUrl);
+            if (seenNames.contains(item.title)) continue;
+            seenNames.add(item.title);
 
             JSONObject v = new JSONObject();
             v.put("vod_id", item.shareUrl);
@@ -222,21 +300,40 @@ public class Wogg extends Spider {
             list.put(v);
         }
 
-        // 2. 同时补充 Wogg 镜像站内结果
-        try {
-            String encoded = URLEncoder.encode(key, StandardCharsets.UTF_8.name());
-            String woggUrl = siteUrl + "/index.php/vodsearch/" + encoded + "----------" + pg + "---.html";
-            String html = OkHttp.get(woggUrl);
-            if (!html.isEmpty()) {
-                parseVodList(html, REGEX_SEARCH_ITEM, list, 20);
-                if (list.length() == searchItems.size()) {
-                    parseVodList(html, REGEX_ITEM, list, 20);
-                }
-            }
-        } catch (Exception ignored) {}
-
         result.put("list", list);
         return result.toString();
+    }
+
+    private void fetchDoubanSubjects(String type, String tag, int limit, int start, JSONArray list) {
+        try {
+            String url = "https://movie.douban.com/j/search_subjects?type=" + type + "&tag=" + URLEncoder.encode(tag, "UTF-8") + "&page_limit=" + limit + "&page_start=" + start;
+            Map<String, String> headers = new HashMap<>();
+            headers.put("User-Agent", OkHttp.CHROME);
+            headers.put("Referer", "https://movie.douban.com/");
+            String json = OkHttp.get(url, headers);
+            if (!json.isEmpty()) {
+                JSONObject obj = new JSONObject(json);
+                JSONArray subjects = obj.optJSONArray("subjects");
+                if (subjects != null) {
+                    for (int i = 0; i < subjects.length(); i++) {
+                        JSONObject sub = subjects.getJSONObject(i);
+                        String id = sub.optString("id");
+                        String title = sub.optString("title");
+                        String cover = sub.optString("cover");
+                        String rate = sub.optString("rate");
+
+                        JSONObject vod = new JSONObject();
+                        vod.put("vod_id", "db::" + id + "::" + title + "::" + cover);
+                        vod.put("vod_name", title);
+                        vod.put("vod_pic", cover.isEmpty() ? "https://img.icons8.com/color/480/film-reel.png" : (cover + "@Referer=https://movie.douban.com/@User-Agent=" + OkHttp.CHROME));
+                        vod.put("vod_remarks", rate.isEmpty() ? "4K原画" : (rate + "分·4K原画"));
+                        list.put(vod);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -258,7 +355,42 @@ public class Wogg extends Spider {
         List<String[]> baiduShares = new ArrayList<>(); // [fullUrl, surl, pwd]
         Set<String> aliShareIds = new LinkedHashSet<>();
 
-        // 情况 A: vodId 直接是网盘分享链接 (来自 PanSearch)
+        // 情况 A: vodId 是豆瓣条目 (db::doubanId::title::cover)
+        if (vodId.startsWith("db::")) {
+            String[] parts = vodId.split("::");
+            String doubanId = parts.length > 1 ? parts[1] : "";
+            title = parts.length > 2 ? parts[2] : "4K网盘影视";
+            if (parts.length > 3 && !parts[3].isEmpty()) {
+                pic = parts[3];
+                if (pic.contains("doubanio.com") && !pic.contains("@Referer=")) {
+                    pic = pic + "@Referer=https://movie.douban.com/@User-Agent=" + OkHttp.CHROME;
+                }
+            }
+            if (!doubanId.isEmpty()) {
+                try {
+                    String absUrl = "https://movie.douban.com/j/subject_abstract?subject_id=" + doubanId;
+                    Map<String, String> h = new HashMap<>();
+                    h.put("User-Agent", OkHttp.CHROME);
+                    h.put("Referer", "https://movie.douban.com/");
+                    String absJson = OkHttp.get(absUrl, h);
+                    if (!absJson.isEmpty()) {
+                        JSONObject aObj = new JSONObject(absJson).optJSONObject("subject");
+                        if (aObj != null) {
+                            if (aObj.has("title")) title = aObj.optString("title");
+                            if (aObj.has("region")) vod.put("vod_area", aObj.optString("region"));
+                            if (aObj.has("release_year")) vod.put("vod_year", aObj.optString("release_year"));
+                            if (aObj.has("directors")) vod.put("vod_director", aObj.optJSONArray("directors").join("/").replace("\"", ""));
+                            if (aObj.has("actors")) vod.put("vod_actor", aObj.optJSONArray("actors").join("/").replace("\"", ""));
+                            if (aObj.has("types")) vod.put("vod_class", aObj.optJSONArray("types").join("/").replace("\"", ""));
+                            JSONObject sc = aObj.optJSONObject("short_comment");
+                            if (sc != null && sc.has("content")) desc = sc.optString("content");
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // 情况 B: vodId 直接是网盘分享链接 (来自 PanSearch)
         if (vodId.startsWith("http://") || vodId.startsWith("https://")) {
             extractAllShares(vodId, quarkShareIds, ucShareIds, baiduShares, aliShareIds);
             if (!baiduShares.isEmpty()) title = "百度4K原画影视";
@@ -267,8 +399,8 @@ public class Wogg extends Spider {
             else if (!aliShareIds.isEmpty()) title = "阿里4K原画影视";
         }
 
-        // 情况 B: vodId 是 Wogg 详情页相对路径或网页 URL
-        if (quarkShareIds.isEmpty() && ucShareIds.isEmpty() && baiduShares.isEmpty() && aliShareIds.isEmpty()) {
+        // 情况 C: vodId 是 Wogg 详情页相对路径或网页 URL
+        if (quarkShareIds.isEmpty() && ucShareIds.isEmpty() && baiduShares.isEmpty() && aliShareIds.isEmpty() && !vodId.startsWith("db::")) {
             String pageUrl = vodId.startsWith("http") ? vodId : (siteUrl + (vodId.startsWith("/") ? "" : "/") + vodId);
             String html = OkHttp.get(pageUrl);
 
@@ -294,59 +426,28 @@ public class Wogg extends Spider {
         String searchKey = cleanSearchKey(title);
         if (searchKey.isEmpty()) searchKey = "4K";
 
-        // 若 Wogg 详情页面缺少百度资源，自动通过 PanSearch 实时补齐百度网盘原画分享
-        if (baiduShares.isEmpty()) {
-            List<PanSearchApi.Item> bItems = PanSearchApi.searchPan(searchKey, "baidu");
-            for (PanSearchApi.Item bi : bItems) {
-                String[] bInfo = BaiduApi.extractShareInfo(bi.shareUrl);
-                if (bInfo != null) {
-                    boolean exists = false;
-                    for (String[] exist : baiduShares) {
-                        if (exist[1].equals(bInfo[1])) {
-                            exists = true;
-                            break;
-                        }
-                    }
-                    if (!exists) baiduShares.add(bInfo);
-                    if (baiduShares.size() >= 2) break;
-                }
-            }
+        // 1. 深度聚合搜索：百度网盘 (确保【百度原画】与【百度无限】绝不缺失)
+        List<PanSearchApi.Item> bItems = PanSearchApi.searchPan(searchKey, "baidu");
+        for (PanSearchApi.Item bi : bItems) {
+            extractAllShares(bi.content + " " + bi.shareUrl, quarkShareIds, ucShareIds, baiduShares, aliShareIds);
         }
 
-        // 补齐夸克网盘
-        if (quarkShareIds.isEmpty()) {
-            List<PanSearchApi.Item> qItems = PanSearchApi.searchPan(searchKey, "quark");
-            for (PanSearchApi.Item qi : qItems) {
-                Matcher mq = REGEX_QUARK_LINK.matcher(qi.shareUrl);
-                if (mq.find()) {
-                    quarkShareIds.add(mq.group(1));
-                    if (quarkShareIds.size() >= 2) break;
-                }
-            }
+        // 2. 深度聚合搜索：夸克网盘
+        List<PanSearchApi.Item> qItems = PanSearchApi.searchPan(searchKey, "quark");
+        for (PanSearchApi.Item qi : qItems) {
+            extractAllShares(qi.content + " " + qi.shareUrl, quarkShareIds, ucShareIds, baiduShares, aliShareIds);
         }
 
-        // 补齐 UC 网盘
-        if (ucShareIds.isEmpty()) {
-            List<PanSearchApi.Item> uItems = PanSearchApi.searchPan(searchKey, "uc");
-            for (PanSearchApi.Item ui : uItems) {
-                Matcher mu = REGEX_UC_LINK.matcher(ui.shareUrl);
-                if (mu.find()) {
-                    ucShareIds.add(mu.group(1));
-                    if (ucShareIds.size() >= 2) break;
-                }
-            }
+        // 3. 深度聚合搜索：阿里云盘
+        List<PanSearchApi.Item> aItems = PanSearchApi.searchPan(searchKey, "aliyundrive");
+        for (PanSearchApi.Item ai : aItems) {
+            extractAllShares(ai.content + " " + ai.shareUrl, quarkShareIds, ucShareIds, baiduShares, aliShareIds);
         }
 
-        // 补齐阿里云盘
-        if (aliShareIds.isEmpty()) {
-            List<PanSearchApi.Item> aItems = PanSearchApi.searchPan(searchKey, "aliyundrive");
-            for (PanSearchApi.Item ai : aItems) {
-                Matcher ma = REGEX_ALI_LINK.matcher(ai.shareUrl);
-                if (ma.find()) {
-                    aliShareIds.add(ma.group(1));
-                    if (aliShareIds.size() >= 2) break;
-                }
-            }
+        // 4. 深度聚合搜索：综合通用网盘 (覆盖 UC 网盘及其他资源)
+        List<PanSearchApi.Item> allItems = PanSearchApi.search(searchKey);
+        for (PanSearchApi.Item item : allItems) {
+            extractAllShares(item.content + " " + item.shareUrl, quarkShareIds, ucShareIds, baiduShares, aliShareIds);
         }
 
         vod.put("vod_name", title);
@@ -356,7 +457,7 @@ public class Wogg extends Spider {
         StringBuilder playFrom = new StringBuilder();
         StringBuilder playUrl = new StringBuilder();
 
-        // 1. 构建【百度原画】与【百度无限】（突破限速双线路，必须位于前置突出显示）
+        // 1. 构建【百度原画】与【百度无限】（突破限速双线路，置于首位突出显示）
         StringBuilder bOrigEp = new StringBuilder();
         StringBuilder bUnlimitEp = new StringBuilder();
         for (String[] bInfo : baiduShares) {
@@ -376,11 +477,13 @@ public class Wogg extends Spider {
                 bUnlimitEp.append(epName).append("$").append(pUnlimit);
                 idx++;
             }
+            if (bOrigEp.length() > 0) break;
         }
         if (bOrigEp.length() == 0) {
-            String sUrl = !baiduShares.isEmpty() ? baiduShares.get(0)[0] : vodId;
-            bOrigEp.append("4K原画正片$baidu_orig::").append(sUrl).append("::0::");
-            bUnlimitEp.append("4K极速正片$baidu_unlimit::").append(sUrl).append("::0::");
+            String sUrl = !baiduShares.isEmpty() ? baiduShares.get(0)[0] : ("search://" + searchKey);
+            String pwd = !baiduShares.isEmpty() ? baiduShares.get(0)[2] : "";
+            bOrigEp.append("4K原画正片$baidu_orig::").append(sUrl).append("::0::").append(pwd);
+            bUnlimitEp.append("4K极速正片$baidu_unlimit::").append(sUrl).append("::0::").append(pwd);
         }
 
         playFrom.append("百度原画");
@@ -555,7 +658,10 @@ public class Wogg extends Spider {
 
     private String cleanSearchKey(String title) {
         if (title == null) return "";
-        return title.replaceAll("\\(.*?\\)|\\[.*?\\]|第.*?季|4K|1080P|HD|BD|\\s+", " ").trim();
+        String s = title.replaceAll("\\(.*?\\)|\\[.*?\\]|【.*?】", " ");
+        s = s.replaceAll("(?i)(4K|1080P|720P|HD|BD|国语|中字|双字|超清|高清|蓝光|60帧|杜比|HDR|SDR)", " ");
+        s = s.replaceAll("[^\\u4e00-\\u9fa5a-zA-Z0-9\\s]", " ");
+        return s.trim().replaceAll("\\s+", " ");
     }
 
     private String cleanEpisodeName(String rawName, int fallbackIndex) {

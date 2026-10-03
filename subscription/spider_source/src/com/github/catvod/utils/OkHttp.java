@@ -92,8 +92,8 @@ public class OkHttp {
             URL url = new URL(urlStr);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod(method);
-            conn.setConnectTimeout(10000);
-            conn.setReadTimeout(12000);
+            conn.setConnectTimeout(4000);
+            conn.setReadTimeout(6000);
             conn.setInstanceFollowRedirects(true);
             conn.setRequestProperty("User-Agent", CHROME);
             conn.setRequestProperty("Referer", url.getProtocol() + "://" + url.getHost() + "/");

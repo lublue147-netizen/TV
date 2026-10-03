@@ -263,6 +263,19 @@ public class BaiduApi {
 
         boolean isUnlimited = mode.contains("unlimit") || (flag != null && flag.contains("无限"));
 
+        if (shareUrl.startsWith("search://")) {
+            String kw = shareUrl.substring(9).trim();
+            List<PanSearchApi.Item> items = PanSearchApi.searchPan(kw, "baidu");
+            for (PanSearchApi.Item it : items) {
+                String[] bInfo = extractShareInfo(it.shareUrl);
+                if (bInfo != null) {
+                    shareUrl = bInfo[0];
+                    pwd = bInfo[2];
+                    break;
+                }
+            }
+        }
+
         // 构建百度直链/流媒体地址
         String directUrl = "";
         String userCookie = getCookie();
