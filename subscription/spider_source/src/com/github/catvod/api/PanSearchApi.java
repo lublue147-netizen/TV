@@ -161,6 +161,7 @@ public class PanSearchApi {
 
                                 // 清理并提取标题
                                 String cleanContent = rawContent.replaceAll("<[^>]+>", "").trim();
+                                cleanContent = cleanContent.replaceAll("^(?:频道新增资源[：:]|名称[：:]|资源标题[：:]|\\d+[、.：:]|[【\\[].*?[】\\]])\\s*", "");
                                 String title = "";
                                 Matcher mTitle = PATTERN_TITLE.matcher(cleanContent);
                                 if (mTitle.find()) {

@@ -212,6 +212,7 @@ public class QuarkApi {
             body.put("pwd_id", shareId);
             body.put("passcode", pwd != null ? pwd : "");
             String res = OkHttp.postJson(url, body.toString(), getHeaders());
+            if (res == null || !res.trim().startsWith("{")) return "";
             JSONObject json = new JSONObject(res);
             if (json.has("data") && json.getJSONObject("data").has("stoken")) {
                 return json.getJSONObject("data").getString("stoken");
@@ -277,6 +278,7 @@ public class QuarkApi {
                             + "&force=0&_page=" + page + "&_size=100&_sort=file_type:asc,file_name:asc";
 
                     String res = OkHttp.get(url, getHeaders());
+                    if (res == null || !res.trim().startsWith("{")) break;
                     JSONObject json = new JSONObject(res);
                     if (!json.has("data")) break;
 
