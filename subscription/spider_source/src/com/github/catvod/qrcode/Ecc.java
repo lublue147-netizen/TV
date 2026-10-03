@@ -3,19 +3,27 @@ package com.github.catvod.qrcode;
 /**
  * The error correction level in a QR Code symbol.
  */
-public enum Ecc {
-	// Must be declared in ascending order of error protection
-	// so that the implicit ordinal() and values() work properly
-	/** The QR Code can tolerate about  7% erroneous codewords. */ LOW(1),
-	/** The QR Code can tolerate about 15% erroneous codewords. */ MEDIUM(0),
-	/** The QR Code can tolerate about 25% erroneous codewords. */ QUARTILE(3),
-	/** The QR Code can tolerate about 30% erroneous codewords. */ HIGH(2);
-	
-	// In the range 0 to 3 (unsigned 2-bit integer).
+public final class Ecc {
+	public static final Ecc LOW      = new Ecc(0, 1);
+	public static final Ecc MEDIUM   = new Ecc(1, 0);
+	public static final Ecc QUARTILE = new Ecc(2, 3);
+	public static final Ecc HIGH     = new Ecc(3, 2);
+
+	private static final Ecc[] VALUES = {LOW, MEDIUM, QUARTILE, HIGH};
+
+	public static Ecc[] values() {
+		return VALUES.clone();
+	}
+
+	public int ordinal() {
+		return ordinal;
+	}
+
+	private final int ordinal;
 	final int formatBits;
-	
-	// Constructor.
-	private Ecc(int fb) {
-		formatBits = fb;
+
+	private Ecc(int ordinal, int fb) {
+		this.ordinal = ordinal;
+		this.formatBits = fb;
 	}
 }
