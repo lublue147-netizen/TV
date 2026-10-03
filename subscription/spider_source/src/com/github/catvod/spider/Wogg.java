@@ -78,6 +78,7 @@ public class Wogg extends Spider {
     public void init(Context context, String extend) throws Exception {
         super.init(context, extend);
         Init.init(context);
+        com.github.catvod.api.PanTokenManager.get().load();
         if (extend != null && !extend.trim().isEmpty()) {
             String ext = extend.trim();
             if (ext.startsWith("http://") || ext.startsWith("https://")) {

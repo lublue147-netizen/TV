@@ -41,33 +41,18 @@ public class QuarkApi {
     }
 
     private QuarkApi() {
-        loadCookie();
-    }
-
-    private void loadCookie() {
-        try {
-            Context ctx = Init.get();
-            if (ctx != null) {
-                SharedPreferences sp = ctx.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-                this.cookie = sp.getString(KEY_COOKIE, "");
-            }
-        } catch (Throwable ignored) {}
     }
 
     public synchronized void setCookie(String c) {
         if (c == null) c = "";
         this.cookie = c.trim();
-        try {
-            Context ctx = Init.get();
-            if (ctx != null) {
-                SharedPreferences sp = ctx.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-                sp.edit().putString(KEY_COOKIE, this.cookie).apply();
-            }
-        } catch (Throwable ignored) {}
+        PanTokenManager.get().setQuarkCookie(this.cookie);
     }
 
     public String getCookie() {
-        if (cookie.isEmpty()) loadCookie();
+        if (cookie.isEmpty()) {
+            this.cookie = PanTokenManager.get().getQuarkCookie();
+        }
         return cookie;
     }
 
@@ -79,8 +64,8 @@ public class QuarkApi {
         Map<String, String> h = new HashMap<>();
         h.put("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
         h.put("Referer", "https://pan.quark.cn/");
-        if (!cookie.isEmpty()) {
-            h.put("Cookie", cookie);
+        if (!getCookie().isEmpty()) {
+            h.put("Cookie", getCookie());
         }
         return h;
     }
@@ -88,16 +73,21 @@ public class QuarkApi {
     public static class QrResult {
         public String token;
         public String qrUrl;
+        public String qrDataUri;
         public String qrImage;
 
         public QrResult(String token, String qrUrl) {
             this.token = token;
             this.qrUrl = qrUrl;
-            try {
-                this.qrImage = "https://api.qrserver.com/v1/create-qr-code/?size=450x450&margin=10&data="
-                        + URLEncoder.encode(qrUrl, "UTF-8");
-            } catch (Exception e) {
-                this.qrImage = qrUrl;
+            this.qrDataUri = com.github.catvod.qrcode.QrUtil.createDataUri(qrUrl);
+            if (this.qrDataUri != null && !this.qrDataUri.isEmpty()) {
+                this.qrImage = this.qrDataUri;
+            } else {
+                try {
+                    this.qrImage = "https://api.pwmqr.com/qrcode/create/?url=" + URLEncoder.encode(qrUrl, "UTF-8");
+                } catch (Exception e) {
+                    this.qrImage = qrUrl;
+                }
             }
         }
     }
@@ -147,6 +137,7 @@ public class QuarkApi {
                     String newCookie = authResp.getCookieString();
                     if (!newCookie.isEmpty()) {
                         setCookie(newCookie);
+                        com.github.catvod.utils.NotifyToast.show("🎉 夸克网盘扫码授权成功！已保存配置");
                         return "SUCCESS";
                     }
                 }

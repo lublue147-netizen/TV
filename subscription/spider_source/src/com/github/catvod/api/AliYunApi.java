@@ -39,33 +39,18 @@ public class AliYunApi {
     }
 
     private AliYunApi() {
-        loadToken();
-    }
-
-    private void loadToken() {
-        try {
-            Context ctx = Init.get();
-            if (ctx != null) {
-                SharedPreferences sp = ctx.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-                this.refreshToken = sp.getString(KEY_TOKEN, "");
-            }
-        } catch (Throwable ignored) {}
     }
 
     public synchronized void setRefreshToken(String token) {
         if (token == null) token = "";
         this.refreshToken = token.trim();
-        try {
-            Context ctx = Init.get();
-            if (ctx != null) {
-                SharedPreferences sp = ctx.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-                sp.edit().putString(KEY_TOKEN, this.refreshToken).apply();
-            }
-        } catch (Throwable ignored) {}
+        PanTokenManager.get().setAliRefreshToken(this.refreshToken);
     }
 
     public String getRefreshToken() {
-        if (refreshToken.isEmpty()) loadToken();
+        if (refreshToken.isEmpty()) {
+            this.refreshToken = PanTokenManager.get().getAliRefreshToken();
+        }
         return refreshToken;
     }
 
@@ -87,17 +72,22 @@ public class AliYunApi {
         public String t;
         public String ck;
         public String codeContent;
+        public String qrDataUri;
         public String qrImage;
 
         public QrResult(String t, String ck, String codeContent) {
             this.t = t;
             this.ck = ck;
             this.codeContent = codeContent;
-            try {
-                this.qrImage = "https://api.qrserver.com/v1/create-qr-code/?size=450x450&margin=10&data="
-                        + URLEncoder.encode(codeContent, "UTF-8");
-            } catch (Exception e) {
-                this.qrImage = codeContent;
+            this.qrDataUri = com.github.catvod.qrcode.QrUtil.createDataUri(codeContent);
+            if (this.qrDataUri != null && !this.qrDataUri.isEmpty()) {
+                this.qrImage = this.qrDataUri;
+            } else {
+                try {
+                    this.qrImage = "https://api.pwmqr.com/qrcode/create/?url=" + URLEncoder.encode(codeContent, "UTF-8");
+                } catch (Exception e) {
+                    this.qrImage = codeContent;
+                }
             }
         }
     }
@@ -144,7 +134,8 @@ public class AliYunApi {
                     String token = "";
                     if (data.has("bizExt")) {
                         try {
-                            String bizExtStr = new String(java.util.Base64.getDecoder().decode(data.getString("bizExt")), StandardCharsets.UTF_8);
+                            byte[] decoded = com.github.catvod.qrcode.QrUtil.decodeBase64(data.getString("bizExt"));
+                            String bizExtStr = new String(decoded, StandardCharsets.UTF_8);
                             JSONObject bizJson = new JSONObject(bizExtStr);
                             if (bizJson.has("pds_login_result")) {
                                 token = bizJson.getJSONObject("pds_login_result").optString("refreshToken");
@@ -154,9 +145,13 @@ public class AliYunApi {
                     if (token.isEmpty() && data.has("pds_login_result")) {
                         token = data.getJSONObject("pds_login_result").optString("refreshToken");
                     }
+                    if (token.isEmpty()) {
+                        token = data.optString("refreshToken");
+                    }
                     if (!token.isEmpty()) {
                         setRefreshToken(token);
                         refreshAccessToken();
+                        com.github.catvod.utils.NotifyToast.show("🎉 阿里云盘扫码授权成功！已保存配置");
                         return "SUCCESS";
                     }
                     return "SUCCESS";
