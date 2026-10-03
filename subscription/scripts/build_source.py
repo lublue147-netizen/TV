@@ -20,7 +20,22 @@ LIVE_DIR = ROOT_DIR / "live"
 GOPROXY_BIN = ROOT_DIR / "goproxy" / "bin"
 DIST_DIR = ROOT_DIR / "dist_source"
 
-KNOWN_VERSIONS = ["v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4"]
+def get_all_version_tags(current_tag: str):
+    tags = set(["v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4"])
+    try:
+        import subprocess
+        res = subprocess.run(["git", "tag", "-l", "v*"], stdout=subprocess.PIPE, text=True)
+        for t in res.stdout.splitlines():
+            t = t.strip()
+            if t:
+                tags.add(t)
+    except Exception:
+        pass
+    if current_tag:
+        tags.add(current_tag)
+    res_list = list(tags)
+    res_list.sort(key=lambda v: [int(x) if x.isdigit() else 0 for x in v.lstrip('v').split('.')], reverse=True)
+    return res_list
 
 def compute_md5(file_path: Path) -> str:
     hash_md5 = hashlib.md5()
@@ -116,10 +131,7 @@ def build():
     if current_tag.startswith("refs/tags/"):
         current_tag = current_tag.replace("refs/tags/", "")
 
-    version_list = list(KNOWN_VERSIONS)
-    if current_tag not in version_list:
-        version_list.append(current_tag)
-    version_list.sort(key=lambda v: [int(x) if x.isdigit() else 0 for x in v.lstrip('v').split('.')], reverse=True)
+    version_list = get_all_version_tags(current_tag)
 
     print(f"[*] Building subscription sources for repo: {repo}")
     print(f"[*] Current Release Tag: {current_tag}")
