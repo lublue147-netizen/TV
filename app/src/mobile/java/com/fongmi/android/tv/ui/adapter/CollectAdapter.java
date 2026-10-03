@@ -26,8 +26,8 @@ public class CollectAdapter extends BaseDiffAdapter<Collect, CollectAdapter.View
     }
 
     public void add(List<Vod> items) {
-        if (getItemCount() == 0) return;
-        getItem(0).getList().addAll(items);
+        if (!getItems().isEmpty()) getItems().get(0).getList().addAll(items);
+        else if (getItemCount() > 0) getItem(0).getList().addAll(items);
     }
 
     public int getPosition() {
@@ -36,7 +36,10 @@ public class CollectAdapter extends BaseDiffAdapter<Collect, CollectAdapter.View
     }
 
     public Collect getActivated() {
-        return getItems().get(getPosition());
+        int pos = getPosition();
+        if (pos < getItemCount()) return getItem(pos);
+        if (!getItems().isEmpty()) return getItems().get(0);
+        return Collect.all();
     }
 
     public void setSelected(int position) {

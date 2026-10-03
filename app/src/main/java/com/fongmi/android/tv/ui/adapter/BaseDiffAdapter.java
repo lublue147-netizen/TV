@@ -16,9 +16,11 @@ import java.util.stream.Stream;
 public abstract class BaseDiffAdapter<T extends Diffable<T>, VH extends RecyclerView.ViewHolder> extends RecyclerView.Adapter<VH> {
 
     protected final AsyncListDiffer<T> differ;
+    private List<T> items;
 
     public BaseDiffAdapter() {
         this.differ = new AsyncListDiffer<>(this, new BaseItemCallback<T>());
+        this.items = new ArrayList<>();
     }
 
     private boolean listsAreSame(List<T> oldList, List<T> newList) {
@@ -36,7 +38,7 @@ public abstract class BaseDiffAdapter<T extends Diffable<T>, VH extends Recycler
     }
 
     public List<T> getItems() {
-        return differ.getCurrentList();
+        return items;
     }
 
     public void setItems(List<T> items) {
@@ -44,15 +46,17 @@ public abstract class BaseDiffAdapter<T extends Diffable<T>, VH extends Recycler
     }
 
     public void setItems(List<T> items, Runnable runnable) {
-        differ.submitList(Objects.requireNonNullElseGet(items, ArrayList::new), runnable);
+        this.items = Objects.requireNonNullElseGet(items, ArrayList::new);
+        differ.submitList(new ArrayList<>(this.items), runnable);
     }
 
     public void setItems(List<T> items, Callback callback) {
         List<T> oldItems = getItems();
         List<T> newItems = Objects.requireNonNullElseGet(items, ArrayList::new);
         boolean hasChange = !listsAreSame(oldItems, newItems);
+        this.items = newItems;
         if (!hasChange) callback.onUpdateFinished(false);
-        else differ.submitList(newItems, () -> callback.onUpdateFinished(true));
+        else differ.submitList(new ArrayList<>(newItems), () -> callback.onUpdateFinished(true));
     }
 
     public void add(T item) {

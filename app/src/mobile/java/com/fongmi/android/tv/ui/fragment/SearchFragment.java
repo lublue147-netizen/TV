@@ -6,6 +6,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -18,6 +19,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.MenuProvider;
+import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.Lifecycle;
@@ -103,8 +105,15 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
     @Override
     protected void initEvent() {
         mBinding.keyword.setOnEditorActionListener((textView, actionId, event) -> {
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) search();
-            return true;
+            if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_SEND) {
+                search();
+                return true;
+            }
+            if (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN) search();
+                return true;
+            }
+            return false;
         });
         mBinding.keyword.addTextChangedListener(new CustomTextListener() {
             @Override
@@ -131,7 +140,10 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
     }
 
     private void search() {
-        if (empty()) return;
+        if (empty()) {
+            Util.showKeyboard(mBinding.keyword);
+            return;
+        }
         String keyword = mBinding.keyword.getText().toString().trim();
         App.post(() -> mRecordAdapter.add(keyword), 250);
         Util.hideKeyboard(mBinding.keyword);
@@ -141,12 +153,14 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
     private void collect(String keyword) {
         FragmentManager fm = requireActivity().getSupportFragmentManager();
         String collectTag = CollectFragment.class.getSimpleName();
-        if (fm.findFragmentByTag(collectTag) != null) return;
+        Fragment fragment = fm.findFragmentByTag(collectTag);
+        if (fragment != null && fragment.isAdded() && fragment.isVisible()) return;
         String searchTag = SearchFragment.class.getSimpleName();
         FragmentTransaction ft = fm.beginTransaction().setTransition(TRANSIT_FRAGMENT_OPEN);
+        if (fragment != null) ft.remove(fragment);
         ft.add(R.id.container, CollectFragment.newInstance(keyword), collectTag);
         Optional.ofNullable(fm.findFragmentByTag(searchTag)).ifPresent(ft::hide);
-        ft.setReorderingAllowed(true).addToBackStack(null).commit();
+        ft.setReorderingAllowed(true).addToBackStack(null).commitAllowingStateLoss();
     }
 
     private void getWord(String text) {
@@ -218,6 +232,7 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
     @Override
     public boolean onMenuItemSelected(@NonNull MenuItem menuItem) {
         if (menuItem.getItemId() == android.R.id.home) requireActivity().getOnBackPressedDispatcher().onBackPressed();
+        if (menuItem.getItemId() == R.id.action_search) search();
         if (menuItem.getItemId() == R.id.action_reset) onReset();
         if (menuItem.getItemId() == R.id.action_site) onSite();
         return true;

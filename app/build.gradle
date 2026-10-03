@@ -24,8 +24,8 @@ android {
         applicationId "com.lublue.android.tv"
         minSdk libs.versions.minSdk.get().toInteger()
         targetSdk libs.versions.targetSdk.get().toInteger()
-        versionCode 583
-        versionName "5.7.13"
+        versionCode 584
+        versionName "5.7.14"
         javaCompileOptions {
             annotationProcessorOptions {
                 arguments = ["room.schemaLocation": "$projectDir/schemas".toString(), "eventBusIndex": "com.fongmi.android.tv.event.EventIndex"]
