@@ -108,7 +108,8 @@ public class Config {
         }
         Config active = AppDatabase.get().getConfigDao().findOne(0);
         if (active == null || active.isEmpty() || Preset.FULL_CLEAN.equals(active.getUrl())) {
-            Config defaultPreset = AppDatabase.get().getConfigDao().find(Preset.ACCELERATED, 0);
+            Config defaultPreset = AppDatabase.get().getConfigDao().find(Preset.ACCELERATED_OPEN, 0);
+            if (defaultPreset == null) defaultPreset = AppDatabase.get().getConfigDao().find(Preset.ACCELERATED, 0);
             if (defaultPreset == null) defaultPreset = AppDatabase.get().getConfigDao().find(Preset.AIWEX, 0);
             if (defaultPreset != null) defaultPreset.update();
         }

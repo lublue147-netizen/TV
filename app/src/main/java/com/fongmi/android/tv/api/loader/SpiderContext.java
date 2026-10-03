@@ -64,4 +64,8 @@ public class SpiderContext extends Application {
     public Context getApplicationContext() {
         return this;
     }
+
+    public android.app.Activity getActivity() {
+        return App.activity();
+    }
 }

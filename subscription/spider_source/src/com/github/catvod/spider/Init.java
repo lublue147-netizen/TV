@@ -74,6 +74,15 @@ public class Init {
             return mActivity;
         }
         try {
+            Class<?> appClass = Class.forName("com.fongmi.android.tv.App");
+            Method method = appClass.getMethod("activity");
+            Activity act = (Activity) method.invoke(null);
+            if (act != null && !act.isFinishing()) {
+                mActivity = act;
+                return act;
+            }
+        } catch (Throwable ignored) {}
+        try {
             Class<?> activityThreadClass = Class.forName("android.app.ActivityThread");
             Object activityThread = activityThreadClass.getMethod("currentActivityThread").invoke(null);
             Field activitiesField = activityThreadClass.getDeclaredField("mActivities");
