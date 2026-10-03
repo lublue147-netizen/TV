@@ -43,29 +43,27 @@ def build():
     (DIST_DIR / "live").mkdir(parents=True, exist_ok=True)
     (DIST_DIR / "bin").mkdir(parents=True, exist_ok=True)
 
-    # 1. Copy Spider Jar & calculate MD5
-    spider_src = SPIDER_DIR / "custom_spider.jar"
+    # 1. Package Open-Source Compiled Spider Jar (compiled from spider_source/src)
+    spider_src = SPIDER_DIR / "spider.jar"
+    if not spider_src.exists() and (SPIDER_DIR / "spider_open.jar").exists():
+        spider_src = SPIDER_DIR / "spider_open.jar"
+    elif not spider_src.exists() and (SPIDER_DIR / "custom_spider.jar").exists():
+        spider_src = SPIDER_DIR / "custom_spider.jar"
+
     spider_md5 = ""
-    if spider_src.exists():
+    if spider_src and spider_src.exists():
         spider_md5 = compute_md5(spider_src)
         shutil.copy2(spider_src, DIST_DIR / "spider.jar")
         shutil.copy2(spider_src, DIST_DIR / "spider.txt")
-        print(f"[+] Spider JAR packaged: dist/spider.jar & dist/spider.txt (MD5: {spider_md5})")
+        shutil.copy2(spider_src, DIST_DIR / "spider_open.jar")
+        shutil.copy2(spider_src, DIST_DIR / "spider_open.txt")
+        print(f"[+] Open-Source Spider JAR packaged: dist/spider.jar & dist/spider.txt (MD5: {spider_md5})")
     else:
-        print("[!] Warning: custom_spider.jar not found, using fallback MD5")
-        spider_md5 = "fc8f993c9297d38139363cd0e3db9853"
+        print("[!] Warning: Spider JAR not found, using fallback MD5")
+        spider_md5 = "0379ce73fd36210a722a972fb4c2e2c6"
 
     spider_url = f"{cdn_base}/spider.txt;md5;{spider_md5}"
-
-    # 1.2 Copy Open Source Spider Jar if compiled
-    spider_open_src = SPIDER_DIR / "spider_open.jar"
-    open_md5 = ""
-    if spider_open_src.exists():
-        open_md5 = compute_md5(spider_open_src)
-        shutil.copy2(spider_open_src, DIST_DIR / "spider_open.jar")
-        shutil.copy2(spider_open_src, DIST_DIR / "spider_open.txt")
-        print(f"[+] Open Spider JAR packaged: dist/spider_open.jar & dist/spider_open.txt (MD5: {open_md5})")
-    spider_open_url = f"{cdn_base}/spider_open.txt;md5;{open_md5}" if open_md5 else spider_url
+    spider_open_url = f"{cdn_base}/spider_open.txt;md5;{spider_md5}"
 
     # 2. Copy Live Streams
     live_src = LIVE_DIR / "iptv.m3u"

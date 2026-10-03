@@ -45,11 +45,12 @@ jobs:
             echo "=== Converting to DEX via D8 ==="
             $ANDROID_HOME/build-tools/34.0.0/d8 --output build_spider/ $(find build_spider/classes -name "*.class")
 
-            echo "=== Packaging spider_open.jar ==="
-            cd build_spider && jar cf spider_open.jar classes.dex && cd ..
+            echo "=== Packaging spider.jar & spider_open.jar ==="
+            cd build_spider && jar cf spider.jar classes.dex && cp spider.jar spider_open.jar && cd ..
             mkdir -p subscription/spider
+            cp build_spider/spider.jar subscription/spider/spider.jar
             cp build_spider/spider_open.jar subscription/spider/spider_open.jar
-            echo "=== Open Spider JAR compilation successful ==="
+            echo "=== Open-Source Spider JAR compilation successful ==="
           fi
 
       - name: Build Subscription Source
