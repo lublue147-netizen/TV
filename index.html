@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TVBox / FongMi 影视源与网盘播放加速发布中心</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #0b0f19 0%, #1e293b 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            padding-bottom: 50px;
+        }
+        .hero {
+            padding: 50px 0 30px;
+            text-align: center;
+        }
+        .card-custom {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+            margin-bottom: 24px;
+        }
+        .code-box {
+            background: #090d16;
+            color: #38bdf8;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-family: monospace;
+            word-break: break-all;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .badge-stat {
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: inline-block;
+            margin: 4px;
+        }
+        .btn-copy {
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+        .btn-copy:hover {
+            background: #1d4ed8;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="hero">
+            <h1 class="display-5 fw-bold mb-3"><i class="fa-solid fa-tv text-primary me-2"></i> 自建 TVBox / FongMi 影视源与网盘加速</h1>
+            <p class="lead text-light opacity-75">全能聚合影视源 + Go/SO 网盘播放多线程加速引擎，秒播 4K、零缓冲体验</p>
+            <div class="mt-3">
+                <span class="badge-stat"><i class="fa-solid fa-film me-1"></i> 全能源 96 个站点</span>
+                <span class="badge-stat"><i class="fa-solid fa-bolt me-1"></i> 网盘 Range 多线程预加载</span>
+                <span class="badge-stat"><i class="fa-solid fa-microchip me-1"></i> Go / SO 跨平台加速</span>
+                <span class="badge-stat"><i class="fa-solid fa-satellite-dish me-1"></i> 高清直播与 VIP 解析</span>
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-9">
+                <div class="card card-custom p-4">
+                    <h4 class="mb-3 text-white"><i class="fa-solid fa-link text-info me-2"></i> 订阅配置接口</h4>
+                    <p class="text-secondary small mb-3">直接将以下任一链接复制粘贴至 FongMi TV 或 TVBox 的「配置地址 / 接口地址」中即可使用：</p>
+                    
+                    <label class="form-label text-light fw-bold">1. 🚀 全功能聚合源 (jsDelivr CDN 国内首选推荐)</label>
+                    <div class="code-box mb-4">
+                        <span id="url1">https://cdn.jsdelivr.net/gh/lublue147-netizen/TV@gh-pages/aiwex.json</span>
+                        <button class="btn-copy ms-2" onclick="copyText('url1')"><i class="fa-regular fa-copy me-1"></i>复制</button>
+                    </div>
+
+                    <label class="form-label text-light fw-bold">2. ⚡ 网盘加速极速源 (Go/SO 预加载与自建 Spider)</label>
+                    <div class="code-box mb-4">
+                        <span id="url2">https://cdn.jsdelivr.net/gh/lublue147-netizen/TV@gh-pages/accelerated.json</span>
+                        <button class="btn-copy ms-2" onclick="copyText('url2')"><i class="fa-regular fa-copy me-1"></i>复制</button>
+                    </div>
+
+                    <label class="form-label text-light fw-bold">3. 🌟 纯开源原生源 (100% Java 开源 Spider · 扫码配置+分集直解)</label>
+                    <div class="code-box mb-4">
+                        <span id="url_open">https://cdn.jsdelivr.net/gh/lublue147-netizen/TV@gh-pages/accelerated_open.json</span>
+                        <button class="btn-copy ms-2" onclick="copyText('url_open')"><i class="fa-regular fa-copy me-1"></i>复制</button>
+                    </div>
+
+                    <label class="form-label text-light fw-bold">4. 🌐 精简核心源 (17 核心精品站点)</label>
+                    <div class="code-box mb-4">
+                        <span id="url3">https://cdn.jsdelivr.net/gh/lublue147-netizen/TV@gh-pages/custom.json</span>
+                        <button class="btn-copy ms-2" onclick="copyText('url3')"><i class="fa-regular fa-copy me-1"></i>复制</button>
+                    </div>
+
+                    <label class="form-label text-light fw-bold">5. 📡 GitHub Pages 官方线路</label>
+                    <div class="code-box mb-2">
+                        <span id="url4">https://lublue147-netizen.github.io/TV/aiwex.json</span>
+                        <button class="btn-copy ms-2" onclick="copyText('url4')"><i class="fa-regular fa-copy me-1"></i>复制</button>
+                    </div>
+                </div>
+
+                <div class="card card-custom p-4">
+                    <h4 class="mb-3 text-white"><i class="fa-solid fa-rocket text-warning me-2"></i> 网盘播放加速引擎 (GoProxy / SO)</h4>
+                    <p class="text-secondary small mb-3">专为夸克、阿里、115、百度网盘设计的并发预取代理，支持直接在 Android 电视盒子或 PC/软路由运行：</p>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-borderless align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>平台 / 架构</th>
+                                    <th>核心类型</th>
+                                    <th>说明</th>
+                                    <th>获取地址</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Android ARM64</strong></td>
+                                    <td><span class="badge bg-primary">ELF 可执行程序</span></td>
+                                    <td>适用于大部分智能电视盒子与手机 (arm64-v8a)</td>
+                                    <td><a href="https://cdn.jsdelivr.net/gh/lublue147-netizen/TV@gh-pages/bin/goproxy-android-arm64" class="btn btn-sm btn-outline-info">下载</a></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Android ARMv7</strong></td>
+                                    <td><span class="badge bg-primary">ELF 可执行程序</span></td>
+                                    <td>适用于 32 位老旧电视盒子/投影仪 (armeabi-v7a)</td>
+                                    <td><a href="https://cdn.jsdelivr.net/gh/lublue147-netizen/TV@gh-pages/bin/goproxy-android-armv7" class="btn btn-sm btn-outline-info">下载</a></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Android Native SO</strong></td>
+                                    <td><span class="badge bg-success">JNI 动态库 (.so)</span></td>
+                                    <td>JNI 动态链接库，供 APK/Spider 直接调用</td>
+                                    <td><a href="https://cdn.jsdelivr.net/gh/lublue147-netizen/TV@gh-pages/bin/arm64-v8a/libgoproxy.so" class="btn btn-sm btn-outline-info">libgoproxy.so</a></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Linux x86_64</strong></td>
+                                    <td><span class="badge bg-secondary">Linux 可执行程序</span></td>
+                                    <td>软路由 / NAS / Docker / VPS 本地加速</td>
+                                    <td><a href="https://cdn.jsdelivr.net/gh/lublue147-netizen/TV@gh-pages/bin/goproxy-linux-amd64" class="btn btn-sm btn-outline-info">下载</a></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Windows x86_64</strong></td>
+                                    <td><span class="badge bg-secondary">Windows EXE</span></td>
+                                    <td>Windows 电脑端使用</td>
+                                    <td><a href="https://cdn.jsdelivr.net/gh/lublue147-netizen/TV@gh-pages/bin/goproxy-windows-amd64.exe" class="btn btn-sm btn-outline-info">下载</a></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function copyText(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('已复制到剪贴板: ' + text);
+            }).catch(err => {
+                prompt('请手动复制链接:', text);
+            });
+        }
+    </script>
+</body>
+</html>
